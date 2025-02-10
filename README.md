@@ -59,5 +59,15 @@ eval-anything/
 - [ ] 对传参体系进行重新设计
     - [ ] **New** 参考lm_eval，构建数据集的yaml文件
     - [ ] 重新设计传递评测config的yaml文件
+    - [ ] 如果串行执行多个benchmark，可以指定多个yaml文件
 - [ ] 整理不在hf上的数据集，统一键值
 - [ ]（非紧急，但必要）在eval-anything/models底下进行各种多模态生成模型的推理单独适配
+
+## 期望的Features
+
+- 多节点自动化评测，给机器、任务、模型的list，自动分配机器进行评测
+- 优化传参体系
+    - 以yaml为一次评测的传参接口，在启动评测时既能支持bash传参，也能通过yaml传参
+    - 支持同时指定多个yaml，实现每个benchmark细粒度的调参
+    - 保存evaluation结果时，还同时能保存评测参数（yaml+命令行参数），可以参考align-anything
+- 若有多个benchmark串行评测，不重复load同一个模型
