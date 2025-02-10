@@ -41,14 +41,6 @@ eval-anything/
 └── README.md
 ```
 
-## 需要讨论的点
-
-- `eval-anything/configs/evaluate.yaml`中将推理参数和评测参数耦合在一起
-    - 可能导致后续在扩展推理backend和不同评测集时需要排列组合产生大量的yaml文件
-    - 但是如果将推理和评测参数分开写为两个yaml，会导致用户在使用时需要修改两处config文件
-- 参考lm_eval，在每个benchmark的子文件夹下单独写一个启动的示例脚本
-- 目前暂定的开发方式是在每个benchmark对应子文件夹下的`eval.py`继承pipeline基类单独写一个子类，是否会工作量过大
-
 ## 开发指南
 - [ ] 从旧框架中剥离出dataloader, inferencer进行适当复用，但是需要根据多模态特性进行更完善的基类开发，分别开发纯文本和多模态的版本
     - [ ] **New** 在dataloader中支持多轮对话数据的拼接
@@ -61,7 +53,7 @@ eval-anything/
     - [ ] 重新设计传递评测config的yaml文件
     - [ ] 如果串行执行多个benchmark，可以指定多个yaml文件
 - [ ] 整理不在hf上的数据集，统一键值
-- [ ]（非紧急，但必要）在eval-anything/models底下进行各种多模态生成模型的推理单独适配
+- [ ] 在eval-anything/models底下进行各种多模态生成模型的推理单独适配（非紧急，但必要）
 
 ## 期望的Features
 
@@ -70,4 +62,5 @@ eval-anything/
     - 以yaml为一次评测的传参接口，在启动评测时既能支持bash传参，也能通过yaml传参
     - 支持同时指定多个yaml，实现每个benchmark细粒度的调参
     - 保存evaluation结果时，还同时能保存评测参数（yaml+命令行参数），可以参考align-anything
-- 若有多个benchmark串行评测，不重复load同一个模型
+- 若有多个benchmark串行评测，不重复load模型
+- 对于多模态评测，有一个直观展示评测结果（过程）的方式，类似gradio
