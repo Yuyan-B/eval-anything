@@ -43,15 +43,15 @@ eval-anything/
 
 ## 开发指南
 - [ ] 从旧框架中剥离出dataloader, inferencer进行适当复用，但是需要根据多模态特性进行更完善的基类开发，分别开发纯文本和多模态的版本
-    - [ ] **New** 在dataloader中支持多轮对话数据的拼接
+    - [ ] **$New$** 在dataloader中支持多轮对话数据的拼接
 - [ ] 复用旧框架中的data_type, logger, template
-- [ ] **New** 设计更加完善的cache机制，保存中间推理和评测结果
-- [ ] **New** 参考lm_eval重新开发pipeline基类，后续的benchmark适配（eval.py）完全以面向对象的形式进行开发
-- [ ] **New** 开发evaluator.py（面向对象），实现常用评测指标的计算。例如win rate, pass rate, F1-Score, ASR, SD, word error rate (WER) (↓), BLEU(↑),  automatic speech recognition (ASR), perplexity
+- [ ] **$New$** 设计更加完善的cache机制，保存中间推理和评测结果
+- [ ] **$New$** 参考lm_eval重新开发pipeline基类，后续的benchmark适配（eval.py）完全以面向对象的形式进行开发
+- [ ] **$New$** 开发evaluator.py（面向对象），实现常用评测指标的计算。例如win rate, pass rate, F1-Score, ASR, SD, word error rate (WER) (↓), BLEU(↑),  automatic speech recognition (ASR), perplexity
 - [ ] 对传参体系进行重新设计
-    - [ ] **New** 参考lm_eval，构建数据集的yaml文件
+    - [ ] **$New$** 参考lm_eval，构建数据集的yaml文件
     - [ ] 重新设计传递评测config的yaml文件
-    - [ ] 如果串行执行多个benchmark，可以指定多个yaml文件
+    - [ ] **$New$** 如果串行执行多个benchmark，可以指定多个yaml文件
 - [ ] 整理不在hf上的数据集，统一键值
 - [ ] 在eval-anything/models底下进行各种多模态生成模型的推理单独适配（非紧急，但必要）
 
@@ -62,5 +62,5 @@ eval-anything/
     - 以yaml为一次评测的传参接口，在启动评测时既能支持bash传参，也能通过yaml传参
     - 支持同时指定多个yaml，实现每个benchmark细粒度的调参
     - 保存evaluation结果时，还同时能保存评测参数（yaml+命令行参数），可以参考align-anything
-- 若有多个benchmark串行评测，不重复load模型
+- 若有多个benchmark串行评测，不重复load模型；同一个benchmark不同task评测时，不重复infer
 - 对于多模态评测，有一个直观展示评测结果（过程）的方式，类似gradio
