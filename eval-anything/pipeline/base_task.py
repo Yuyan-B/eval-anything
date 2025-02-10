@@ -11,18 +11,34 @@
     - EvaluationResult类
 """
 from abc import ABC, abstractmethod
+from eval_anything.utils.logger import Logger
+
 
 class BaseTask(ABC):
-    def __init__(self, config: dict):
+    def __init__(self, yaml_path: str):
         # TODO 初始化数据集、模型、logger、任务列表
-        self.config = config
-    
-    def get_configs(self):
-        # TODO 获取配置
+        self.logger = Logger()
+        self.configs = self.load_configs(yaml_path)
+        self.task_list = self.get_task_name()
+        
+    def get_configs(self, yaml_path: str):
+        # TODO 获取配置，模态无感，在此基类开发
+        """Get configs from yaml file
+        Args:
+            yaml_path (str): yaml file path
+            
+        Returns:
+            configs (dict): configs
+        """
         pass
 
-    def get_task_name(self):
-        # TODO 模态无感，在此基类开发
+    def get_task_name(self) -> list[str]:
+        # TODO 获取任务列表，模态无感，在此基类开发
+        """Get task name from yaml file
+            
+        Returns:
+            task_name (list[str]): task name list
+        """
         pass
 
     @abstractmethod
@@ -37,7 +53,9 @@ class BaseTask(ABC):
     
     def iterate_run(self):
         # TODO 迭代任务列表，调用run执行任务
-        pass
+        """Iterate task list and run tasks"""
+        for task in self.task_list:
+            pass
     
     def run(self):
         # TODO 运行任务，调用inference进行推理，保存cache、调用calculate_metrics计算评测指标
