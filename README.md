@@ -48,3 +48,16 @@ eval-anything/
     - 但是如果将推理和评测参数分开写为两个yaml，会导致用户在使用时需要修改两处config文件
 - 参考lm_eval，在每个benchmark的子文件夹下单独写一个启动的示例脚本
 - 目前暂定的开发方式是在每个benchmark对应子文件夹下的`eval.py`继承pipeline基类单独写一个子类，是否会工作量过大
+
+## 开发指南
+- [ ] 从旧框架中剥离出dataloader, inferencer进行适当复用，但是需要根据多模态特性进行更完善的基类开发，分别开发纯文本和多模态的版本
+    - [ ] **New** 在dataloader中支持多轮对话数据的拼接
+- [ ] 复用旧框架中的data_type, logger, template
+- [ ] **New** 设计更加完善的cache机制，保存中间推理和评测结果
+- [ ] **New** 参考lm_eval重新开发pipeline基类，后续的benchmark适配（eval.py）完全以面向对象的形式进行开发
+- [ ] **New** 开发evaluator.py（面向对象），实现常用评测指标的计算。例如win rate, pass rate, F1-Score, ASR, SD, word error rate (WER) (↓), BLEU(↑),  automatic speech recognition (ASR), perplexity
+- [ ] 对传参体系进行重新设计
+    - [ ] **New** 参考lm_eval，构建数据集的yaml文件
+    - [ ] 重新设计传递评测config的yaml文件
+- [ ] 整理不在hf上的数据集，统一键值
+- [ ]（非紧急，但必要）在eval-anything/models底下进行各种多模态生成模型的推理单独适配
