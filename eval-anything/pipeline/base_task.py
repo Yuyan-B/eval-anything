@@ -189,6 +189,7 @@ class BaseTask(ABC):
     @abstractmethod
     def save_single_result(self, save_path: str, result: EvaluationResult):
         # TODO 保存结果到指定路径
+        
         """Save evaluation result and config file of single benchmark.
         Args:
             save_path (str): save path

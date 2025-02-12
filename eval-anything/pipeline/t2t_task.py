@@ -10,3 +10,11 @@ t2t任务基类，不直接使用，而是继承后实现具体任务的逻辑
 输出：
     - EvaluationResult类
 """
+
+from eval_anything.pipeline.base_task import BaseTask
+
+class T2TTask(BaseTask):
+    def __init__(self, yaml_path: str):
+        super().__init__(yaml_path)
+        
+    

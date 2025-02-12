@@ -1,0 +1,44 @@
+# ============================================
+# 评测配置：
+#   - 数据集hf路径
+#   - 数据集split
+#   - 数据集size
+#   - 数据集模态
+#   - 评测方式（multiple choice / generation / ...）
+#   - 评测指标（accuracy / ...）
+#   - 是否支持few_shot
+#   - 选项编号形式（ABCD或1234...），判断对错时的标识(true/false或者1/0...)
+# ============================================
+dataset:
+  - name: gsm8k
+  - path: openai/gsm8k
+  - split: test
+  - size: 
+  - modality: text-to-text
+  - few_shot_source: null
+  - max_shot: 5
+  - cot: True
+task: 
+  - main
+evaluate_tools:
+  - name: match_number_after_pattern
+    function: regex_match_number
+    args:
+      additional_pattern: "#### {original_pattern}"
+      match_index: -1
+  - name: match_number_after_answer
+    function: regex_match_number
+    args:
+      additional_pattern: "The answer is {original_pattern}."
+      match_index: -1
+  - name: match_last_number
+    function: regex_match_number
+    args:
+      match_index: -1
+  - name: match_first_number
+    function: regex_match_number
+    args:
+      match_index: 0
+metrics:
+  - accuracy
+  
