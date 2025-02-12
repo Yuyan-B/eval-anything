@@ -4,10 +4,10 @@ chat template
 TODO 从原库中copy，还需适配
 """
 
-from eval_anything.utils.template_registry import register_eval_template as register_template
+from eval_anything.utils.register import TemplateRegistry
 
 
-@register_template('A-OKVQA')
+@TemplateRegistry.register('A-OKVQA')
 class AOKVQA:
     system_prompt: str = ''
     user_prompt: str = 'USER: \n<image>{input} give me your rationales.'
@@ -15,7 +15,7 @@ class AOKVQA:
     split_token: str = 'ASSISTANT:'
 
 
-@register_template('Llava')
+@TemplateRegistry.register('Llava')
 class Llava:
     system_prompt: str = ''
     user_prompt: str = 'USER: \n<image>{input}'
@@ -24,7 +24,7 @@ class Llava:
     separator: str = '###'
 
 
-@register_template('Qwen2-VL')
+@TemplateRegistry.register('Qwen2-VL')
 class QWEN2VL:
     system_prompt: str = '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n'
     user_prompt: str = '<|im_start|>user\n{input}<|im_end|>\n'
@@ -33,14 +33,14 @@ class QWEN2VL:
     separator: str = 'assistant\n'
 
 
-@register_template('Alpaca')
+@TemplateRegistry.register('Alpaca')
 class Alpaca:
     system_prompt: str = 'Below is an instruction that describes a task. '
     user_prompt: str = '### Instruction:\n{input}\n\n'
     assistant_prompt: str = '### Response:\n{output}'
 
 
-@register_template('Aquila')
+@TemplateRegistry.register('Aquila')
 class Aquila:
     system_prompt: str = (
         'A chat between a curious human and an artificial intelligence assistant. '
@@ -51,7 +51,7 @@ class Aquila:
     separator: str = '###'
 
 
-@register_template('Atom')
+@TemplateRegistry.register('Atom')
 class Atom:
     system_prompt: str = ''
     user_prompt: str = '<bos>Human: {input}\n<eos>'
@@ -59,7 +59,7 @@ class Atom:
     separator: str = ''
 
 
-@register_template('Baichuan')
+@TemplateRegistry.register('Baichuan')
 class Baichuan:
     system_prompt: str = ''
     user_prompt: str = '<reserved_102>{input}'
@@ -67,7 +67,7 @@ class Baichuan:
     separator: str = ''
 
 
-@register_template('Baichuan2')
+@TemplateRegistry.register('Baichuan2')
 class Baichuan2:
     system_prompt: str = ''
     user_prompt: str = '<reserved_106>{input}'
@@ -75,7 +75,7 @@ class Baichuan2:
     separator: str = ''
 
 
-@register_template('Belle')
+@TemplateRegistry.register('Belle')
 class Belle:
     system_prompt: str = '<bos>'
     user_prompt: str = 'Human: {input}'
@@ -83,7 +83,7 @@ class Belle:
     separator: str = '\n\n'
 
 
-@register_template('Bluelm')
+@TemplateRegistry.register('Bluelm')
 class Bluelm:
     system_prompt: str = '<bos>'
     user_prompt: str = 'Human: {input}'
@@ -91,7 +91,7 @@ class Bluelm:
     separator: str = ''
 
 
-@register_template('Breeze')
+@TemplateRegistry.register('Breeze')
 class Breeze:
     system_prompt: str = '<bos>'
     user_prompt: str = '[INST] {input}'
@@ -99,7 +99,7 @@ class Breeze:
     separator: str = ''
 
 
-@register_template('Chatglm2')
+@TemplateRegistry.register('Chatglm2')
 class Chatglm2:
     system_prompt: str = '[gMASK]<sop>'
     user_prompt: str = '[Round 0]\n\n问：{input}'
@@ -107,7 +107,7 @@ class Chatglm2:
     separator: str = '\n\n'
 
 
-@register_template('Chatglm3')
+@TemplateRegistry.register('Chatglm3')
 class Chatglm3:
     system_prompt: str = '[gMASK]<sop><|system|>\n'
     user_prompt: str = '{input}'
@@ -115,7 +115,7 @@ class Chatglm3:
     separator: str = ''
 
 
-@register_template('Chatml')
+@TemplateRegistry.register('Chatml')
 class Chatml:
     system_prompt: str = '<|im_start|>system\n<|im_end|>\n'
     user_prompt: str = '<|im_start|>user\n{input}<|im_end|>\n'
@@ -123,7 +123,7 @@ class Chatml:
     separator: str = ''
 
 
-@register_template('Chatml_de')
+@TemplateRegistry.register('Chatml_de')
 class Chatml_de:
     system_prompt: str = 'Du bist ein freundlicher und hilfsbereiter KI-Assistent.'
     user_prompt: str = '<|im_start|>user\n{input}<|im_end|>\n'
@@ -131,7 +131,7 @@ class Chatml_de:
     separator: str = '\n'
 
 
-@register_template('Codegeex2')
+@TemplateRegistry.register('Codegeex2')
 class Codegeex2:
     system_prompt: str = '[gMASK]<sop>'
     user_prompt: str = '{input}'
@@ -139,7 +139,7 @@ class Codegeex2:
     separator: str = ''
 
 
-@register_template('Codegeex4')
+@TemplateRegistry.register('Codegeex4')
 class Codegeex2:
     system_prompt: str = (
         '[gMASK]<sop><|system|>\n你是一位智能编程助手，你叫CodeGeeX。你会为用户回答关于编程、代码、计算机方面的任何问题，并提供格式规范、可以执行、准确安全的代码，并在必要时提供详细的解释。'
@@ -149,7 +149,7 @@ class Codegeex2:
     separator: str = ''
 
 
-@register_template('Cohere')
+@TemplateRegistry.register('Cohere')
 class Cohere:
     system_prompt: str = '<bos><|START_OF_TURN_TOKEN|><|SYSTEM_TOKEN|><|END_OF_TURN_TOKEN|>'
     user_prompt: str = '<|START_OF_TURN_TOKEN|><|USER_TOKEN|>{input}<|END_OF_TURN_TOKEN|>'
@@ -157,7 +157,7 @@ class Cohere:
     separator: str = ''
 
 
-@register_template('Cpm')
+@TemplateRegistry.register('Cpm')
 class Cpm:
     system_prompt: str = '<bos>'
     user_prompt: str = '<用户>{input}'
@@ -165,7 +165,7 @@ class Cpm:
     separator: str = ''
 
 
-@register_template('Dbrx')
+@TemplateRegistry.register('Dbrx')
 class Dbrx:
     system_prompt: str = (
         '<|im_start|>system\nYou are DBRX, created by Databricks. You were last updated in December 2023. '
@@ -187,7 +187,7 @@ class Dbrx:
     separator: str = '\n'
 
 
-@register_template('Deepseek')
+@TemplateRegistry.register('Deepseek')
 class Deepseek:
     system_prompt: str = '<bos>'
     user_prompt: str = 'User: {input}\n'
@@ -195,7 +195,7 @@ class Deepseek:
     separator: str = ''
 
 
-@register_template('Deepseekcoder')
+@TemplateRegistry.register('Deepseekcoder')
 class Deepseekcoder:
     system_prompt: str = (
         '<bos>You are an AI programming assistant, utilizing the Deepseek Coder model, developed by Deepseek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer\n'
@@ -205,7 +205,7 @@ class Deepseekcoder:
     separator: str = '\n'
 
 
-@register_template('Dolphin')
+@TemplateRegistry.register('Dolphin')
 class Dolphin:
     system_prompt: str = '<|im_start|>system\nYou are Dolphin, a helpful AI assistant.<|im_end|>\n'
     user_prompt: str = '<|im_start|>user\n{input}<|im_end|>'
@@ -213,7 +213,7 @@ class Dolphin:
     separator: str = '\n'
 
 
-@register_template('Falcon')
+@TemplateRegistry.register('Falcon')
 class Falcon:
     system_prompt: str = ''
     user_prompt: str = 'User: {input}\n'
@@ -221,7 +221,7 @@ class Falcon:
     separator: str = '\n'
 
 
-@register_template('Gemma')
+@TemplateRegistry.register('Gemma')
 class Gemma:
     system_prompt: str = '<bos>'
     user_prompt: str = '<start_of_turn>user\n{input}<end_of_turn>\n'
@@ -229,7 +229,7 @@ class Gemma:
     separator: str = '<end_of_turn>\n'
 
 
-@register_template('Glm4')
+@TemplateRegistry.register('Glm4')
 class Glm4:
     system_prompt: str = '[gMASK]<sop><|system|>\n'
     user_prompt: str = '<|user|>\n{input}'
@@ -237,7 +237,7 @@ class Glm4:
     separator: str = ''
 
 
-@register_template('Intern')
+@TemplateRegistry.register('Intern')
 class Intern:
     system_prompt: str = '<bos><|System|>:\n'
     user_prompt: str = '<|User|>:{input}\n'
@@ -245,7 +245,7 @@ class Intern:
     separator: str = '<eoa>\n'
 
 
-@register_template('Intern2')
+@TemplateRegistry.register('Intern2')
 class Intern2:
     system_prompt: str = '<bos><|im_start|>system\n{input}<|im_end|>\n'
     user_prompt: str = '<|im_start|>user\n{input}<|im_end|>\n'
@@ -253,7 +253,7 @@ class Intern2:
     separator: str = '<|im_end|>\n'
 
 
-@register_template('Llama2')
+@TemplateRegistry.register('Llama2')
 class Llama2:
     system_prompt: str = '<<SYS>>\n\n<</SYS>>\n\n'
     user_prompt: str = '<bos>[INST] {input}'
@@ -261,7 +261,7 @@ class Llama2:
     separator: str = ''
 
 
-@register_template('Llama2_zh')
+@TemplateRegistry.register('Llama2_zh')
 class Llama2_zh:
     system_prompt: str = (
         '<<SYS>>\nYou are a helpful assistant. 你是一个乐于助人的助手。\n<</SYS>>\n\n'
@@ -271,7 +271,7 @@ class Llama2_zh:
     separator: str = ''
 
 
-@register_template('Llama3')
+@TemplateRegistry.register('Llama3')
 class Llama3:
     system_prompt: str = '<bos><|start_header_id|>system<|end_header_id|>\n\n'
     user_prompt: str = '<|start_header_id|>user<|end_header_id|>\n\n{input}<|eot_id|>'
@@ -279,7 +279,7 @@ class Llama3:
     separator: str = ''
 
 
-@register_template('Mistral')
+@TemplateRegistry.register('Mistral')
 class Mistral:
     system_prompt: str = '<bos>'
     user_prompt: str = '[INST] {input}'
@@ -287,7 +287,7 @@ class Mistral:
     separator: str = ''
 
 
-@register_template('Olmo')
+@TemplateRegistry.register('Olmo')
 class Olmo:
     system_prompt: str = '<eos>'
     user_prompt: str = '<|user|>\n{input}'
@@ -295,7 +295,7 @@ class Olmo:
     separator: str = ''
 
 
-@register_template('Openchat')
+@TemplateRegistry.register('Openchat')
 class Openchat:
     system_prompt: str = '<bos>'
     user_prompt: str = 'GPT4 Correct User: {input}<eos>'
@@ -303,7 +303,7 @@ class Openchat:
     separator: str = ''
 
 
-@register_template('Openchat3')
+@TemplateRegistry.register('Openchat3')
 class Openchat3:
     system_prompt: str = '<bos>'
     user_prompt: str = '<|start_header_id|>GPT4 Correct User<|end_header_id|>\n\n{input}<|eot_id|>'
@@ -311,7 +311,7 @@ class Openchat3:
     separator: str = ''
 
 
-@register_template('Orion')
+@TemplateRegistry.register('Orion')
 class Orion:
     system_prompt: str = '<bos>'
     user_prompt: str = 'Human: {input}\n'
@@ -319,7 +319,7 @@ class Orion:
     separator: str = ''
 
 
-@register_template('Phi')
+@TemplateRegistry.register('Phi')
 class Phi:
     system_prompt: str = '<bos>'
     user_prompt: str = '<|user|>\n{input}<|end|>'
@@ -327,7 +327,7 @@ class Phi:
     separator: str = '\n'
 
 
-@register_template('Qwen')
+@TemplateRegistry.register('Qwen')
 class Qwen:
     system_prompt: str = '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n'
     user_prompt: str = '<|im_start|>user\n{input}<|im_end|>'
@@ -335,7 +335,7 @@ class Qwen:
     separator: str = '\n'
 
 
-@register_template('Solar')
+@TemplateRegistry.register('Solar')
 class Solar:
     system_prompt: str = '### System:\n\n\n'
     user_prompt: str = '### User:\n{input}\n'
@@ -343,7 +343,7 @@ class Solar:
     separator: str = ''
 
 
-@register_template('Starchat')
+@TemplateRegistry.register('Starchat')
 class Starchat:
     system_prompt: str = '<|system|>\n<|end|>\n'
     user_prompt: str = '<|user|>\n{input}<|end|>'
@@ -351,7 +351,7 @@ class Starchat:
     separator: str = '\n'
 
 
-@register_template('Telechat')
+@TemplateRegistry.register('Telechat')
 class Telechat:
     system_prompt: str = r'<\_system><\_end>'
     user_prompt: str = '<_user>{input}'
@@ -359,7 +359,7 @@ class Telechat:
     separator: str = ''
 
 
-@register_template('Xuanyuan')
+@TemplateRegistry.register('Xuanyuan')
 class Xuanyuan:
     system_prompt: str = (
         '以下是用户和人工智能助手之间的对话。用户以Human开头，人工智能助手以Assistant开头，会对人类提出的问题给出有帮助、高质量、详细和礼貌的回答，并且总是拒绝参与与不道德、不安全、有争议、政治敏感等相关的话题、问题和指示。\n'
@@ -369,7 +369,7 @@ class Xuanyuan:
     separator: str = ''
 
 
-@register_template('Xverse')
+@TemplateRegistry.register('Xverse')
 class Xverse:
     system_prompt: str = ''
     user_prompt: str = 'Human: {input}\n'
@@ -377,7 +377,7 @@ class Xverse:
     separator: str = ''
 
 
-@register_template('Yayi')
+@TemplateRegistry.register('Yayi')
 class Yayi:
     system_prompt: str = (
         "<|System|>\nYou are a helpful, respectful and honest assistant named YaYi developed by Beijing Wenge Technology Co.,Ltd. Always answer as helpfully as possible, while being safe.  Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. If you don't know the answer to a question, please don't share false information.\n\n"
@@ -387,7 +387,7 @@ class Yayi:
     separator: str = '\n\n'
 
 
-@register_template('Yi')
+@TemplateRegistry.register('Yi')
 class Yi:
     system_prompt: str = '<|im_start|>system\n<|im_end|>\n'
     user_prompt: str = '<|im_start|>user\n<|im_end|>\n'
@@ -395,7 +395,7 @@ class Yi:
     separator: str = '\n'
 
 
-@register_template('Yi_vl')
+@TemplateRegistry.register('Yi_vl')
 class Yi_vl:
     system_prompt: str = (
         'This is a chat between an inquisitive human and an AI assistant. '
@@ -406,7 +406,7 @@ class Yi_vl:
     separator: str = '\n'
 
 
-@register_template('Yuan')
+@TemplateRegistry.register('Yuan')
 class Yuan:
     system_prompt: str = ''
     user_prompt: str = '{input}<sep>'
@@ -414,7 +414,7 @@ class Yuan:
     separator: str = '\n'
 
 
-@register_template('Zephyr')
+@TemplateRegistry.register('Zephyr')
 class Zephyr:
     system_prompt: str = '<|system|>\nYou are Zephyr, a helpful assistant.'
     user_prompt: str = '<|user|>\n{input}<eos>'
@@ -422,7 +422,7 @@ class Zephyr:
     separator: str = '\n'
 
 
-@register_template('Ziya')
+@TemplateRegistry.register('Ziya')
 class Zephyr:
     system_prompt: str = ''
     user_prompt: str = '<human>:{input}\n'
@@ -430,7 +430,7 @@ class Zephyr:
     separator: str = '\n'
 
 
-@register_template('LLAMA_3_2')
+@TemplateRegistry.register('LLAMA_3_2')
 class LLAMA_3_2:
     system_prompt: str = ''
     user_prompt: str = (
@@ -441,7 +441,7 @@ class LLAMA_3_2:
     separator: str = '###'
 
 
-@register_template('Qwen2Audio')
+@TemplateRegistry.register('Qwen2Audio')
 class Qwen2Audio:
     system_prompt: str = 'You are a helpful assistant.'
     user_prompt: str = (

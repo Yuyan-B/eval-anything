@@ -2,10 +2,10 @@
 评估工具包（包括各种指标的计算以及指定pattern的提取）
 """
 from abc import ABC, abstractmethod
-from eval_anything.evaluate_tools.base_tools import BaseTools
+from eval_anything.evaluate_tools.base_tools import BaseTool
 from typing import Union, List, Iterable
 
-class RegexMatch(BaseTools):
+class RegexMatch(BaseTool):
     def __init__(self, pattern: str, match_index: int = None):
         self.pattern = pattern
         self.match_index = match_index  

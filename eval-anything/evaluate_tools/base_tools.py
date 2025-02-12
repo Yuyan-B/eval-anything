@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-class BaseTools(ABC):
+class BaseTool(ABC):
     def __init__(self, **kwargs) -> None:
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -12,9 +12,14 @@ class BaseTools(ABC):
     def __call__(self, **kwargs):
         return self.apply(**kwargs)
 
-class BaseMetrics(ABC):
+class BaseMetric(ABC):
     def __init__(self, **kwargs) -> None:
         for key, value in kwargs.items():
             setattr(self, key, value)
             
-                
+    @abstractmethod
+    def calculate(self, **kwargs):
+        pass
+    
+    def __call__(self, **kwargs):
+        return self.calculate(**kwargs)
