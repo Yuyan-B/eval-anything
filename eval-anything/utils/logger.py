@@ -1,5 +1,7 @@
 """
 评估日志记录工具
+
+TODO 从原库中copy，还需适配
 """
 
 import csv
