@@ -8,6 +8,9 @@ TODO
 from abc import ABC, abstractmethod
 from eval_anything.utils.logger import Logger
 from eval_anything.utils.data_types import InferenceInput, InferenceOutput, EvaluationResult
+from eval_anything.models.base_model import MODEL_MAP
+import importlib
+
 
 class BaseTask(ABC):
     def __init__(self, yaml_path: str):
@@ -63,17 +66,11 @@ class BaseTask(ABC):
         """
         pass
 
-    @abstractmethod
-    def load_model(self, model_cfgs: dict):
-        # TODO 初始化一个model类
-        """Load model
-        Args:
-            model_cfgs (dict): model configs
-            
-        Returns:
-            model (BaseInferencer): model
-        """
-        pass
+    def load_model(self, model_cfgs: dict, infer_cfgs: dict):
+        module_name = f"eval_anything.models.{MODEL_MAP[f'{infer_cfgs["infer_backend"]}_{model_cfgs["model_type"]}']}"
+        module = importlib.import_module(module_name)
+        model = module(model_cfgs)
+        return model
     
     def iterate_run(self):
         # TODO 迭代任务列表，调用run执行任务
@@ -146,7 +143,7 @@ class BaseTask(ABC):
         """
         pass
     
-    def model_inference(self, input_data: list[InferenceInput]):
+    def model_inference(self, model, input_data: list[InferenceInput]):
         # TODO 实现模型推理（调用models中的推理方式），需要支持多轮
         """Model inference. Support multi-round inference.
         Args:
@@ -155,7 +152,7 @@ class BaseTask(ABC):
         Returns:
             inference_outputs (list[InferenceOutput]): inference outputs
         """
-        pass
+        return model.generation(input_data)
     
     def shutdown_model(self):
         # TODO 关闭模型

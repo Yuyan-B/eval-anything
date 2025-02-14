@@ -16,55 +16,76 @@ import torch
 from openai.types.chat.chat_completion import ChatCompletion
 from vllm.outputs import RequestOutput
 from vllm.sequence import PromptLogprobs
-
+from enum import Enum
 
 @dataclass
 class RewardModelOutput:
     """The output data of a reward model."""
 
+class ModalityType(Enum):
+    TEXT = "text"
+    IMAGE = "image"
+    VIDEO = "video"
+    AUDIO = "audio"
+    VISION = "vision" # For Imagebind
+
+    def __str__(self):
+        return self.value
+
+    def __eq__(self, other):
+        if isinstance(other, ModalityType):
+            return self.value == other.value
+        elif isinstance(other, str):
+            return self.value == other
+        return False
+
+    def __hash__(self):
+        return hash(self.value)
+
+    def is_valid_modality(cls, value: str) -> bool:
+        try:
+            cls(value)
+            return True
+        except ValueError:
+            return False
+
+
+class MultiModalData:
+    def __init__(self, url: str | None, file):
+        self.url = url
+        self.file = file
+        self.modality = self.get_modality()
+
+    # TODO 从self.file获取modality
+    def get_modality(self):
+        pass
 
 @dataclass
 class InferenceInput:
     '''
     Args:
         text: The text to be completed.
-        token_ids: The token IDs of the text to be completed.
-        image_url: The URL of the input image.
-        pixel_values: The pixel values of the input image.
+        url: The url of the image to be completed.
+        file: The image to be completed.
+        modality: The modality of the image to be completed.
     '''
 
     text: str
-    token_ids: torch.LongTensor = None
-
-    image_url: Optional[str] = None
-    pixel_values: torch.FloatTensor = None
-    image_file: PIL.Image = None
-    video_name: str = None
-    video_url: str = None
-    inputs: dict = None
+    mm_data: MultiModalData
 
     def __init__(
         self,
         text: str,
-        token_ids: torch.LongTensor = None,
-        inputs: dict = None,
-        image_url: Optional[str] = None,
-        pixel_values: torch.FloatTensor = None,
-        image_file: PIL.Image = None,
-        video_name: str = None,
-        video_url: str = None,
+        urls: List[str] | str | None,
+        data_files = None,
+        uuid: Dict[str, str] = None
     ):
         self.text = text
-        self.token_ids = token_ids
-        self.inputs = inputs
-        self.image_url = image_url
-        self.pixel_values = pixel_values
-        self.image_file = image_file
-        self.video_name = video_name
-        self.video_url = video_url
+        self.mm_data = [MultiModalData(url, file) for url, file in zip(urls, data_files)]
+        self.uuid = uuid
 
     def __repr__(self):
-        return f'InferenceInput(' f'text={self.text!r}),' f'token_ids={self.token_ids!r}),'
+        return f'InferenceInput(' f'text={self.text!r}),' f'mm_data={self.mm_data!r})'
 
 
 @dataclass
@@ -79,6 +100,8 @@ class InferenceOutput:
         response: The response string of the request. \\
         response_token_ids: The token IDs of the response string. \\
         response_logprobs: The logprobs of the response string.
+
+    TODO 还需适配
     """
 
     engine: str
@@ -90,27 +113,25 @@ class InferenceOutput:
     response_token_ids: Optional[List[int]]
     response_logprobs: Optional[PromptLogprobs]
     raw_output: Optional[Union[RequestOutput, None]]
+    mm_input_data: List[MultiModalData]
+    uuid: Dict[str, str]
 
     def __post_init__(self):
         pass
 
     def __init__(
         self,
-        prompt: str,
+        task: str,
+        uuid: str,
         response: str,
         engine: str = 'hand',
-        question_id: str = None,
-        prompt_token_ids: Optional[List[int]] = None,
-        prompt_logprobs: Optional[PromptLogprobs] = None,
         response_token_ids: Optional[List[int]] = None,
         response_logprobs: Optional[PromptLogprobs] = None,
         raw_output: Optional[Union[RequestOutput, None]] = None,
     ):
         self.engine = engine
-        self.prompt = prompt
-        self.question_id = question_id
-        self.prompt_token_ids = prompt_token_ids
-        self.prompt_logprobs = prompt_logprobs
+        self.task = task
+        self.uuid = uuid
         self.response = response
         self.response_token_ids = response_token_ids
         self.response_logprobs = response_logprobs
@@ -118,57 +139,56 @@ class InferenceOutput:
 
     @classmethod
     def from_vllm_output(
-        cls, vllm_output: RequestOutput, question_id: str = None, store_raw: bool = False
+        cls, task, uuid, vllm_output: RequestOutput, store_raw: bool = False
     ):
         return cls(
             engine='vllm',
-            prompt=vllm_output.prompt,
-            question_id=question_id,
-            prompt_token_ids=vllm_output.prompt_token_ids,
-            prompt_logprobs=vllm_output.prompt_logprobs,
+            task=task,
+            uuid=uuid,
             response=[output.text for output in vllm_output.outputs],
             response_token_ids=[output.token_ids for output in vllm_output.outputs],
             response_logprobs=[output.logprobs for output in vllm_output.outputs],
             raw_output=vllm_output if store_raw else None,
         )
 
-    @classmethod
-    def from_data(cls, data: Dict, store_raw: bool = False):
-        return cls(
-            engine='dict',
-            question_id=data.get('question_id'),
-            prompt=data.get('prompt'),
-            response=data.get('response'),
-            raw_output=data if store_raw else None,
-        )
+    # TODO
+    # @classmethod
+    # def from_data(cls, data: Dict, store_raw: bool = False):
+    #     return cls(
+    #         engine='dict',
+    #         question_id=data.get('question_id'),
+    #         prompt=data.get('prompt'),
+    #         response=data.get('response'),
+    #         raw_output=data if store_raw else None,
+    #     )
 
-    @classmethod
-    def from_dict(cls, data: Dict, store_raw: bool = False):
-        return cls(
-            engine='dict',
-            prompt=data.get('prompt'),
-            response=data.get('response'),
-            question_id=data.get('question_id'),
-            prompt_token_ids=data.get('prompt_token_ids'),
-            prompt_logprobs=data.get('prompt_logprobs'),
-            response_token_ids=data.get('response_token_ids'),
-            response_logprobs=data.get('response_logprobs'),
-            raw_output=data if store_raw else None,
-        )
+    # @classmethod
+    # def from_dict(cls, data: Dict, store_raw: bool = False):
+    #     return cls(
+    #         engine='dict',
+    #         prompt=data.get('prompt'),
+    #         response=data.get('response'),
+    #         question_id=data.get('question_id'),
+    #         prompt_token_ids=data.get('prompt_token_ids'),
+    #         prompt_logprobs=data.get('prompt_logprobs'),
+    #         response_token_ids=data.get('response_token_ids'),
+    #         response_logprobs=data.get('response_logprobs'),
+    #         raw_output=data if store_raw else None,
+    #     )
 
-    @classmethod
-    def from_deepspeed_output(cls, deepspeed_output: Dict, store_raw: bool = False):
-        return cls(
-            engine='deepspeed',
-            prompt=deepspeed_output.get('prompt'),
-            question_id=deepspeed_output.get('question_id'),
-            prompt_token_ids=deepspeed_output.get('prompt_token_ids'),
-            prompt_logprobs=deepspeed_output.get('prompt_logprobs'),
-            response=deepspeed_output.get('response'),
-            response_token_ids=deepspeed_output.get('response_token_ids'),
-            response_logprobs=deepspeed_output.get('response_logprobs'),
-            raw_output=deepspeed_output if store_raw else None,
-        )
+    # @classmethod
+    # def from_deepspeed_output(cls, deepspeed_output: Dict, store_raw: bool = False):
+    #     return cls(
+    #         engine='deepspeed',
+    #         prompt=deepspeed_output.get('prompt'),
+    #         question_id=deepspeed_output.get('question_id'),
+    #         prompt_token_ids=deepspeed_output.get('prompt_token_ids'),
+    #         prompt_logprobs=deepspeed_output.get('prompt_logprobs'),
+    #         response=deepspeed_output.get('response'),
+    #         response_token_ids=deepspeed_output.get('response_token_ids'),
+    #         response_logprobs=deepspeed_output.get('response_logprobs'),
+    #         raw_output=deepspeed_output if store_raw else None,
+    #     )
 
     def __repr__(self):
         return (

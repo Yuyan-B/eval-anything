@@ -21,6 +21,7 @@ eval-anything/
 │   │   ├── mm_dataloader.py            # 多模态dataloader，支持多模态数据的本地和在线读取，支持数据预处理
 │   │   └── t2t_dataloader.py           # 纯文本dataloader，支持数据加载和预处理
 │   ├── models/                         # 各模型推理的代码，包含在线api、hf、vllm以及多模态生成模型各自的生成代码
+│   │   ├── base_model.py
 │   │   ├── api.py                      # 在线api访问
 │   │   ├── hf_lm.py                    # 基于transformers的t2t推理
 │   │   ├── hf_mm.py                    # 基于transformers的多模态推理

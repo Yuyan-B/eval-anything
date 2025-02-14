@@ -2,6 +2,7 @@
 评估日志记录工具
 
 TODO 从原库中copy，还需适配
+    - 增加多模态信息的预览，可以放到wandb上
 """
 
 import csv

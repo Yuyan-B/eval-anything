@@ -15,11 +15,26 @@ dataset:
   - split: test
   - size: 
   - modality: text-to-text
-  - few_shot_source: null
+  - fewshot_data_dir: null
+  - fewshot_data_file: null
+  - fewshot_data_split: null
+  - cot_fewshot_data_dir: null
+  - cot_fewshot_data_file: null
+  - cot_fewshot_data_split: null
   - max_shot: 5
-  - cot: True
 task: 
-  - main
+  - name: main
+    type: Dialogue
+    question_key: question
+    answer_key: null
+    ground_truth_key: answer
+    candidate_labels: null
+  - name: multi_choice  # example
+    type: MultiChoice
+    question_key: question
+    answer_key: choice
+    ground_truth_key: answer
+    candidate_labels: [A, B, C, D]
 evaluate_tools:
   - name: match_number_after_pattern
     function: regex_match_number

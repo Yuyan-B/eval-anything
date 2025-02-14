@@ -29,6 +29,8 @@ default:
     # Chat template
     chat_template: null
   infer_cfgs:
+    # Inference backend
+    infer_backend: "vllm"
     # Whether to trust remote code
     trust_remote_code: True
     # The max token length
