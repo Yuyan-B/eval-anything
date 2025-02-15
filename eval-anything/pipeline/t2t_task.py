@@ -13,12 +13,20 @@ t2t任务基类，不直接使用，而是继承后实现具体任务的逻辑
 
 from eval_anything.pipeline.base_task import BaseTask
 from eval_anything.dataloader.t2t_dataloader import T2TDataLoader
-
+from eval_anything.utils.evaluation_result import EvaluationResult
 class T2TTask(BaseTask):
     def __init__(self, yaml_path: str):
         super().__init__(yaml_path)
         
     def load_data(self, dataset_cfgs: dict):
         dataset = T2TDataLoader(dataset_cfgs)
-        return dataset.load_dataset()
+        return dataset
     
+    def display_task_results(self, results: list[EvaluationResult]):
+        pass
+    
+    def save_single_result(self, save_path: str, result: EvaluationResult):
+        pass
+    
+    def save_task_results(self, save_path: str, results: list[EvaluationResult]):
+        pass

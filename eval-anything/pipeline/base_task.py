@@ -9,6 +9,8 @@ from abc import ABC, abstractmethod
 from eval_anything.utils.logger import Logger
 from eval_anything.utils.data_types import InferenceInput, InferenceOutput, EvaluationResult
 from eval_anything.models.base_model import MODEL_MAP
+from eval_anything.evaluate_tools.t2t_tools import *
+
 import importlib
 
 
@@ -72,6 +74,17 @@ class BaseTask(ABC):
         model = module(model_cfgs)
         return model
     
+    def model_inference(self, model, input_data: list[InferenceInput]):
+        # TODO 实现模型推理（调用models中的推理方式），需要支持多轮
+        """Model inference. Support multi-round inference.
+        Args:
+            input_data (list[InferenceInput]): input data
+            
+        Returns:
+            inference_outputs (list[InferenceOutput]): inference outputs
+        """
+        return model.generation(input_data)
+    
     def iterate_run(self):
         # TODO 迭代任务列表，调用run执行任务
         """Iterate benchmark list and run benchmarks"""
@@ -98,14 +111,15 @@ class BaseTask(ABC):
         dataloader = self.load_data(benchmark_cfgs)
         input_data = dataloader.load_data()    # Input_data: list[InferenceInput]
         
-        inference_outputs = self.model_inference(input_data)
-        
         if self.save_cache:
-            cache_path, cache_exist = self.get_cache_path(benchmark_cfgs, inference_outputs)
+            cache_path, cache_exist = self.get_cache_path(benchmark_cfgs, input_data)
             if cache_exist:
-                self.load_cache(cache_path)
+                inference_outputs = self.load_cache(cache_path)
             else:
+                inference_outputs = self.model_inference(self.model, input_data)
                 self.save_cache(cache_path, inference_outputs)
+        else:
+            inference_outputs = self.model_inference(self.model, input_data)
         
         result = self.calculate_metrics(benchmark_name, inference_outputs, benchmark_cfgs["metrics"])
         self.save_single_result(self.output_path, result)
@@ -143,35 +157,34 @@ class BaseTask(ABC):
         """
         pass
     
-    def model_inference(self, model, input_data: list[InferenceInput]):
-        # TODO 实现模型推理（调用models中的推理方式），需要支持多轮
-        """Model inference. Support multi-round inference.
-        Args:
-            input_data (list[InferenceInput]): input data
-            
-        Returns:
-            inference_outputs (list[InferenceOutput]): inference outputs
-        """
-        return model.generation(input_data)
-    
     def shutdown_model(self):
         # TODO 关闭模型
         """Shutdown model"""
         self.model.shutdown()
     
     @abstractmethod
-    def calculate_metrics(self, benchmark_name: str, inference_outputs: list[InferenceOutput], metrics_list: list[str]):
+    def calculate_metrics(self, benchmark_name: str, inference_outputs: list[InferenceOutput], evaluate_tools: list[str], judge_methods: list[str], metrics_list: list[str]):
         # TODO 给定metrics list，迭代执行calculate_single_metric
         """Calculate metrics
         Args:
             benchmark_name (str): benchmark name
             inference_outputs (list[InferenceOutput]): inference outputs
+            evaluate_tools (list[str]): evaluate tool list
+            judge_methods (list[str]): judge method list
             metrics_list (list[str]): metrics list
             
         Returns:
             result (EvaluationResult): evaluation result
         """
-        
+        extracted_results = {evaluate_tool: getattr(str, evaluate_tool)(inference_outputs) for evaluate_tool in evaluate_tools}
+        ground_truths = [self.get_ground_truth(inference_output) for inference_output in inference_outputs]
+        evaluation_results = [EvaluationResult(benchmark_name, inference_output, extracted_result, ground_truth, judge_methods) for inference_output, extracted_result, ground_truth in zip(inference_outputs, extracted_results, ground_truths)]
+        for metric in metrics_list:
+            evaluation_results = getattr(str, metric)(evaluation_results)
+        return evaluation_results
+
+    @abstractmethod
+    def get_ground_truth(self, inference_output: InferenceOutput):
         pass
     
     @abstractmethod
@@ -186,7 +199,6 @@ class BaseTask(ABC):
     @abstractmethod
     def save_single_result(self, save_path: str, result: EvaluationResult):
         # TODO 保存结果到指定路径
-        
         """Save evaluation result and config file of single benchmark.
         Args:
             save_path (str): save path

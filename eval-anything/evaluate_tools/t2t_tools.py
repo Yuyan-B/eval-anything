@@ -5,6 +5,16 @@ from abc import ABC, abstractmethod
 from eval_anything.evaluate_tools.base_tools import BaseTool
 from typing import Union, List, Iterable
 
+T2T_EVALUATE_TOOLS_MAP = {
+    "regex_match_number": "RegexMatchNumber",
+    "regex_match_text": "RegexMatch",
+}
+
+T2T_JUDGER_MAP = {
+    "judge_equal": "JudgeEqual",
+}
+
+
 class RegexMatch(BaseTool):
     def __init__(self, pattern: str, match_index: int = None):
         self.pattern = pattern
@@ -38,3 +48,9 @@ class RegexMatchNumber(RegexMatch):
         self.pattern = additional_pattern.format(original_pattern=pattern_match_number) if additional_pattern else pattern_match_number
         self.match_index = match_index
         
+class JudgeEqual(BaseTool):
+    def __init__(self):
+        super().__init__()
+    
+    def apply(self, data_1, data_2) -> bool:
+        return data_1 == data_2

@@ -35,12 +35,12 @@ task:
     answer_key: choice
     ground_truth_key: answer
     candidate_labels: [A, B, C, D]
-evaluate_tools:
+evaluate_method:
   - name: match_number_after_pattern
     function: regex_match_number
     args:
       additional_pattern: "#### {original_pattern}"
-      match_index: -1
+      match_index: -1   # Take the last match
   - name: match_number_after_answer
     function: regex_match_number
     args:
@@ -53,7 +53,7 @@ evaluate_tools:
   - name: match_first_number
     function: regex_match_number
     args:
-      match_index: 0
+      match_index: 0   # Take the first match
 metrics:
   - accuracy
   

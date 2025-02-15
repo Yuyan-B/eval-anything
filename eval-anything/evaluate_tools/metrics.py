@@ -18,6 +18,7 @@ class MetricCalculator(BaseTool):
 @MetricRegistry.register('accuracy')
 class Accuracy(BaseMetric):
     def calculate(self, preds: Union[List, Iterable], targets: Union[List, Iterable]) -> float:
+        correct = 0
         for pred, target in zip(preds, targets):
             if pred == target:
                 correct += 1

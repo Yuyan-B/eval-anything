@@ -17,7 +17,7 @@ from openai.types.chat.chat_completion import ChatCompletion
 from vllm.outputs import RequestOutput
 from vllm.sequence import PromptLogprobs
 from enum import Enum
-
+from eval_anything.evaluate_tools.t2t_tools import T2T_EVALUATE_TOOLS_MAP, T2T_JUDGER_MAP
 @dataclass
 class RewardModelOutput:
     """The output data of a reward model."""
@@ -203,6 +203,20 @@ class InferenceOutput:
             f'response_logprobs={self.response_logprobs!r})'
         )
 
+@dataclass
+class EvaluationResult:
+    
+    def __init__(self, benchmark_name: str, inference_output: InferenceOutput, extracted_result: str | None, ground_truth: str | None, judge_methods: List[str] | None):
+        self.benchmark_name = benchmark_name
+        self.inference_output = inference_output
+        self.extracted_result = extracted_result
+        self.ground_truth = ground_truth
+        self.judge_methods = judge_methods
+        self.evaluation_result = self.judge(judge_methods)
+
+    def judge(self, judge_methods: List[str]) -> Dict[str, bool | float]:
+        judge_methods = [getattr(str, T2T_JUDGER_MAP[judge_method]) for judge_method in judge_methods]
+        return {judge_method: judge_method(self.extracted_result, self.ground_truth) for judge_method in judge_methods}
 
 @dataclass
 class SingleInput:
@@ -317,6 +331,7 @@ class EvalOutput:
     evalEngine: str
     input: Union[SingleInput, ArenaInput]
     raw_output: Union[ChatCompletion, Exception, RequestOutput]
+
 
     def __post_init__(self):
         assert self.evalEngine in ['gpt_evaluation', 'arena']
