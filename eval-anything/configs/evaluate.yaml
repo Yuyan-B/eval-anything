@@ -22,6 +22,8 @@ default:
       }
   # The model configurations
   model_cfgs:
+    # Pretrained model unique identity
+    model_id: null
     # Pretrained model name or path
     model_name_or_path: null
     # Model type ("LM" or "MM")
@@ -35,6 +37,8 @@ default:
     trust_remote_code: True
     # The max token length
     model_max_length: 2048
+    # The max new tokens
+    max_new_tokens: 512
     # Top-K
     top_k: 50
     # Top-P
