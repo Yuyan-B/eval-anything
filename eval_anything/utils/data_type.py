@@ -75,11 +75,13 @@ class InferenceInput:
 
     def __init__(
         self,
+        task: str,
         text: str,
         urls: List[str] | str | None,
         data_files = None,
         uuid: Dict[str, str] = None
     ):
+        self.task = task
         self.text = text
         self.mm_data = [MultiModalData(url, file) for url, file in zip(urls, data_files)]
         self.uuid = uuid
@@ -103,17 +105,15 @@ class InferenceOutput:
 
     TODO 还需适配
     """
-
+    task: str    
     engine: str
     prompt: str
     response: str
-    question_id: str
-    prompt_token_ids: Optional[List[int]]
-    prompt_logprobs: Optional[PromptLogprobs]
     response_token_ids: Optional[List[int]]
     response_logprobs: Optional[PromptLogprobs]
     raw_output: Optional[Union[RequestOutput, None]]
     mm_input_data: List[MultiModalData]
+    mm_output_data: List[MultiModalData]
     uuid: Dict[str, str]
 
     def __post_init__(self):
@@ -122,7 +122,7 @@ class InferenceOutput:
     def __init__(
         self,
         task: str,
-        uuid: str,
+        uuid: Dict[str, str],   # {modality: uuid}
         response: str,
         engine: str = 'hand',
         response_token_ids: Optional[List[int]] = None,
@@ -215,8 +215,8 @@ class EvaluationResult:
         self.evaluation_result = self.judge(judge_methods)
 
     def judge(self, judge_methods: List[str]) -> Dict[str, bool | float]:
-        judge_methods = [getattr(str, T2T_JUDGER_MAP[judge_method]) for judge_method in judge_methods]
-        return {judge_method: judge_method(self.extracted_result, self.ground_truth) for judge_method in judge_methods}
+        # judge_methods = [getattr(str, T2T_JUDGER_MAP[judge_method]) for judge_method in judge_methods]
+        return {judge_method: getattr(str, T2T_JUDGER_MAP[judge_method])(self.extracted_result, self.ground_truth) for judge_method in judge_methods}
 
 @dataclass
 class SingleInput:

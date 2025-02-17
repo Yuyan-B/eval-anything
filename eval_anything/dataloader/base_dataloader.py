@@ -26,32 +26,41 @@ class BaseDataLoader:
         'MultiChoice': 'build_multi_choice_prompt',
     }
 
-    def __init__(self, cfgs):
+    def __init__(self, eval_cfgs, data_cfgs):
         self.eval_cfgs, self.data_cfgs = (
-            cfgs.default.eval_cfgs,
-            cfgs.default.data_cfgs,
+            eval_cfgs,
+            data_cfgs,
         )
-        self.action = self.eval_cfgs.action if self.eval_cfgs.action else 'generation'
-        self.num_shot = self.eval_cfgs.n_shot if self.eval_cfgs.n_shot else 0
-        self.cot = self.eval_cfgs.cot if self.eval_cfgs.cot else False
+        # TODO 参数列表
+        # self.action = self.eval_cfgs.action if self.eval_cfgs.action else 'generation'
+        self.benchmark_name = self.data_cfgs.dataset['name']
+        self.num_shot = self.eval_cfgs.n_shot[self.benchmark_name] if self.eval_cfgs.n_shot[self.benchmark_name] else 0
+        self.cot = self.eval_cfgs.cot[self.benchmark_name] if self.eval_cfgs.cot[self.benchmark_name] else False
         self.split = self.data_cfgs.split
-        self.task_dir = self.data_cfgs.task_dir
+        self.data_dir = self.data_cfgs.path
         self.task_info = self.get_task_info()
 
     def get_task_info(self):
         if isinstance(self.data_cfgs.task, list):
             return self.data_cfgs.task
         else:
-            task_names = [self.data_cfgs.task]
-            return task_names
+            tasks = [self.data_cfgs.task]
+            return tasks
 
-    def load_dataset(self) -> Dict[str, List[InferenceInput]]:
+    def load_dataset(self, task_list: list[str]) -> Dict[str, List[InferenceInput]]:
         prompts = {}
+        if task_list == []:
+            task_list = self.data_cfgs.dataset['default_task_list']
         for task in self.task_info:
-            dataset = load_dataset(self.task_dir, task)
+            if task['name'] not in task_list:
+                continue
+            if task['data_files']:
+                dataset = load_dataset(self.data_dir, data_files=task['data_files'])
+            else:
+                dataset = load_dataset(self.data_dir, task['name'])
             self.few_shot_data = self.set_fewshot_dataset(dataset, task)
             prompt_builder = getattr(self, self.task_type_map[task['type']])
-            prompts[task] = prompt_builder(dataset)
+            prompts[task['name']] = prompt_builder(dataset)
         return prompts
 
     def set_fewshot_dataset(self, task):
@@ -59,10 +68,12 @@ class BaseDataLoader:
             if not self.data_cfgs.cot_fewshot_data_dir:
                 raise ValueError(f"Chain of thought fewshot is not supported for task {self.data_cfgs.name}: {task}")
             cot_fewshot_data_split = self.data_cfgs.cot_fewshot_data_split if self.data_cfgs.cot_fewshot_data_split else 'train'
-            return load_dataset(self.data_cfgs.cot_fewshot_data_dir, self.data_cfgs.cot_fewshot_data_file, split=cot_fewshot_data_split)
+            return load_dataset(self.data_cfgs.cot_fewshot_data_path, data_files=self.data_cfgs.cot_fewshot_data_file, split=cot_fewshot_data_split)
         else:
+            if not self.data_cfgs.fewshot_data_path:
+                raise ValueError(f"Fewshot is not supported for task {self.data_cfgs.name}: {task}")
             fewshot_data_split = self.data_cfgs.fewshot_data_split if self.data_cfgs.fewshot_data_split else 'train'
-            return load_dataset(self.data_cfgs.fewshot_data_dir, self.data_cfgs.fewshot_data_file, split=fewshot_data_split)
+            return load_dataset(self.data_cfgs.fewshot_data_path, data_files=self.data_cfgs.fewshot_data_file, split=fewshot_data_split)
 
     @abstractmethod
     def get_task_dict(self) -> List[str]:
