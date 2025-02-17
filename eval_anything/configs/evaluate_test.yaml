@@ -1,24 +1,30 @@
-default:
   # Evaluation configurations
   eval_cfgs:
-    # Output directory name
+    # Output directory
     output_dir: null
+    # Cache directory, if not specified, cache will not be saved
+    cache_dir: null
     # Unique identifier for current task
     task_uid: null
+    # benchmark name and task name, if the task list is empty, all tasks will be evaluated
+    benchmarks: {
+      "gsm8k": ["main"], 
+      "agieval": []
+      }
     # Num shot
-    n_shot: 0
+    n_shot: {
+      "gsm8k": 5,
+      "agieval": 0
+      }
     # Chain of thought
-    cot: False
+    cot: {
+      "gsm8k": False,
+      "agieval": False
+      }
     # Evaluation metrics
     metrics: {
-      "MMMU": ['accuracy', 'f1', 'precision', 'recall', 'roc_auc'],
-      "MME": []
-      }
-  data_cfgs:
-    # benchmark name and task name, if the task list is empty, all tasks will be evaluated
-    eval_data: {
-      "MMMU": ['Accounting', 'Agriculture', 'Architecture_and_Engineering', 'Art', 'Art_Theory', 'Basic_Medical_Science', 'Biology', 'Chemistry', 'Clinical_Medicine', 'Computer_Science', 'Design', 'Diagnostics_and_Laboratory_Medicine', 'Economics', 'Electronics', 'Energy_and_Power', 'Finance', 'Geography', 'History', 'Literature', 'Manage', 'Marketing', 'Materials', 'Math', 'Mechanical_Engineering', 'Music', 'Pharmacy', 'Physics', 'Psychology','Public_Health', 'Sociology'], 
-      "MME": []
+      "gsm8k": ['accuracy'],
+      "agieval": []
       }
   # The model configurations
   model_cfgs:
@@ -27,7 +33,7 @@ default:
     # Pretrained model name or path
     model_name_or_path: null
     # Model type ("LM" or "MM")
-    model_type: "MM"
+    model_type: "LM"
     # Chat template
     chat_template: null
   infer_cfgs:

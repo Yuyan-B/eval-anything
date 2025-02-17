@@ -11,7 +11,14 @@ MODEL_MAP = {
     "api_LM": "api_lm",
     "api_MM": "api_mm",
 }
-
+CLASS_MAP = {
+    "vllm_LM": "vllmLM",
+    "vllm_MM": "vllmMM",
+    "hf_LM": "HFLM",
+    "hf_MM": "HFMM",
+    "api_LM": "APILM",
+    "api_MM": "APIMM",
+}
 class BaseModel:
     def __init__(self, model_cfgs: Dict[str, Any]):
         self.model_cfgs = model_cfgs

@@ -15,15 +15,12 @@ t2t dataloader基类
     - InferenceInput类
 """
 
-import argparse
-import json
-import re
 from typing import Any, Dict, List
 
-from eval_anything.evaluation.dataloader.base_dataloader import BaseDataLoader
+from eval_anything.dataloader.base_dataloader import BaseDataLoader
 
 
-from eval_anything.utils.template_registry import get_eval_template_class as get_template_class
+# from eval_anything.utils.registry import TemplateRegistry as get_template_class
 from eval_anything.utils.utils import MultiChoicePromptBuilder, DialoguePromptBuilder
 from eval_anything.utils.data_type import InferenceInput
 from datasets import load_dataset

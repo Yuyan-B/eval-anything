@@ -7,12 +7,11 @@ eval-anything/
 │   ├── benchmarks/                     # 各benchmark的评测代码
 │   │   ├── text_image_to_text/         # 以模态作为一级分类
 │   │   │   └── mmmu/                   # benchmark子文件夹
-│   │   │       ├── config.yaml         # 存储评测集的基本信息，包括数据集路径、size、评测方式、key值...
+│   │   │       ├── mmmu.yaml           # 存储评测集的基本信息，包括数据集路径、size、评测方式、key值...
 │   │   │       └── eval.py             # 评测代码，继承自eval-anything/pipeline下的基类
 │   │   └── text_to_text/
 │   │       └── gsm8k/
-│   │           ├── gsm8k_main.yaml
-|   |           ├── gsm8k_socratic.yaml
+│   │           ├── gsm8k.yaml
 │   │           └── eval.py
 │   ├── configs/                        # 评测参数文件夹
 │   │   └── evaluate.yaml               # 包含了推理参数（top-k, temperature...）、评测参数(cot, few-shot...)
@@ -38,13 +37,21 @@ eval-anything/
 │   │   └── t2t_tools.py                # 评测工具
 │   └── utils/                          # 项目中使用到的工具包
 │       ├── data_type.py                # 定义数据基类，用于存储模型输入数据和评测结果数据
-│       ├── register.py               
+│       ├── register.py                 # 注册器类
 │       ├── logger.py                   # 评测logger，用于输出评测结果以及写入本地log
+│       ├── utils.py                    # 框架开发时使用的通用工具
 │       └── template.py                 # chat_template
 ├── scripts/                        # 评测启动脚本文件夹
 │   └── run.sh                      # 评测启动脚本
 ├── setup.py
 └── README.md
+```
+
+## Installation
+
+```bash
+conda create -n eval-anything python==3.11
+pip install -e .
 ```
 
 ## 开发指南
@@ -56,10 +63,9 @@ eval-anything/
 - [ ] **$New$** 设计更加完善的cache机制，保存中间推理和评测结果
 - [x] **$New$** 参考lm_eval重新开发pipeline基类，后续的benchmark适配（eval.py）完全以面向对象的形式进行开发
 - [x] **$New$** 开发evaluator.py（面向对象），实现常用评测指标的计算。例如win rate, pass rate, F1-Score, ASR, SD, word error rate (WER) (↓), BLEU(↑),  automatic speech recognition (ASR), perplexity
-- [ ] 对传参体系进行重新设计
+- [x] 对传参体系进行重新设计
     - [x] **$New$** 参考lm_eval，构建数据集的yaml文件
     - [x] 重新设计传递评测config的yaml文件
-    - [ ] **$New$** 如果串行执行多个benchmark，可以指定多个yaml文件
 - [ ] 整理不在hf上的数据集，统一键值
 - [ ] 在eval-anything/models底下进行各种多模态生成模型的推理单独适配（非紧急，但必要）
 

@@ -14,7 +14,7 @@ from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.utils import UUIDGenerator
 from eval_anything.models.base_model import BaseModel
 
-class vllmModel(BaseModel):
+class vllmLM(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], vllm_cfgs, **kwargs):
         self.vllm_cfgs_sp, self.vllm_cfgs_llm = vllm_cfgs.SamplingParams, vllm_cfgs.LLM
         self.model_cfgs = model_cfgs
@@ -67,26 +67,19 @@ class vllmModel(BaseModel):
     def generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]:
         return self._generation(inputs)
 
-    def _generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]:
-        input_list = []
-        for task, data_list in inputs.items():
-            for data in data_list:
-                data.uuid = UUIDGenerator()(data)
-                data.task = task
-                input_list.append(data)
-
+    def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
         outputs = self.model.generate(
             prompts=[input.text for input in input_list], sampling_params=self.samplingparams
         )
-        InferenceOutputs = [
+        inference_outputs = [
             InferenceOutput.from_vllm_output(task=input.task, uuid=input.uuid, vllm_output=output, store_raw=True)
             for input, output in zip(input_list, outputs)
         ]
-        outputs = {task: [] for task in inputs.keys()}
-        for output in InferenceOutputs:
-            outputs[output.task].append(output)
+        # outputs = {task: [] for task in inputs.keys()}
+        # for output in InferenceOutputs:
+        #     outputs[output.task].append(output)
 
-        return outputs
+        return inference_outputs
     
     # TODO
     def shutdown_model(self):

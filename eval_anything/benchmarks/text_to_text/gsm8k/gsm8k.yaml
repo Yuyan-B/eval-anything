@@ -10,31 +10,36 @@
 #   - 选项编号形式（ABCD或1234...），判断对错时的标识(true/false或者1/0...)
 # ============================================
 dataset:
-  - name: gsm8k
-  - path: openai/gsm8k
-  - split: test
-  - size: 
-  - modality: text-to-text
-  - fewshot_data_dir: null
-  - fewshot_data_file: null
-  - fewshot_data_split: null
-  - cot_fewshot_data_dir: null
-  - cot_fewshot_data_file: null
-  - cot_fewshot_data_split: null
-  - max_shot: 5
+  name: gsm8k
+  path: openai/gsm8k
+  split: test
+  size: 
+  modality: text-to-text
+  fewshot_data_path: null
+  fewshot_data_file: null
+  fewshot_data_split: null
+  cot_fewshot_data_path: null
+  cot_fewshot_data_file: null
+  cot_fewshot_data_split: null
+  max_shot: 5
+  default_task_list: ["main"]
 task: 
   - name: main
     type: Dialogue
+    data_files: ["main/*.parquet"]  # Optional, if not specified, dataset will be loaded through the task name
     question_key: question
     answer_key: null
     ground_truth_key: answer
     candidate_labels: null
+    avalable_evaluate_methods: ["match_number_after_pattern", "match_number_after_answer", "match_last_number", "match_first_number"] # first one as default
   - name: multi_choice  # example
     type: MultiChoice
+    data_files: null
     question_key: question
     answer_key: choice
     ground_truth_key: answer
     candidate_labels: [A, B, C, D]
+    avalable_evaluate_methods: ["match_number_after_pattern", "match_number_after_answer", "match_last_number", "match_first_number"]
 evaluate_method:
   - name: match_number_after_pattern
     function: regex_match_number
@@ -55,5 +60,8 @@ evaluate_method:
     args:
       match_index: 0   # Take the first match
 metrics:
-  - accuracy
+  - name: accuracy
+    function: accuracy
+    args:
+      positive_label: true
   
