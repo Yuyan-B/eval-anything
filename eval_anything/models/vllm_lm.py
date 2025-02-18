@@ -2,16 +2,11 @@
 (t2t)支持vllm推理
 """
 
-import json
-import os
-import re
 from typing import Any, Dict, List
-
 from vllm import LLM, SamplingParams
 from vllm.utils import cuda_device_count_stateless
-
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
-from eval_anything.utils.utils import UUIDGenerator
+from eval_anything.utils.register import TemplateRegistry as get_template
 from eval_anything.models.base_model import BaseModel
 
 class vllmLM(BaseModel):
@@ -36,6 +31,9 @@ class vllmLM(BaseModel):
 
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
+        self.chat_template = self.model_cfgs.chat_template
+        self.template = get_template(self.chat_template)
+
         self.llm_trust_remote_code = self.infer_cfgs.trust_remote_code
         self.sp_max_tokens = self.infer_cfgs.model_max_length
 
@@ -69,8 +67,15 @@ class vllmLM(BaseModel):
         return self._generation(inputs)
 
     def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
+        prompts = [
+            self.template.system_prompt
+            + self.template.user_prompt.format(input=input.text)
+            + self.template.assistant_prompt.format(output='')
+            for input in input_list
+        ]
+
         outputs = self.model.generate(
-            prompts=[input.text for input in input_list], sampling_params=self.samplingparams
+            prompts=prompts, sampling_params=self.samplingparams
         )
         inference_outputs = [
             InferenceOutput.from_vllm_output(task=input.task, uuid=input.uuid, vllm_output=output, store_raw=True)

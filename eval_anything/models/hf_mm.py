@@ -2,10 +2,7 @@
 (multi-modal)支持transformers+accelerate推理
 """
 
-import json
-import os
 from typing import Any, Dict, List
-
 from transformers import (
     Qwen2VLForConditionalGeneration,
     LlavaForConditionalGeneration,
@@ -13,10 +10,9 @@ from transformers import (
 )
 from transformers import AutoConfig, AutoProcessor
 from accelerate import Accelerator
-import torch
 from PIL import Image
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
-from eval_anything.utils.utils import get_messages
+from eval_anything.utils.register import TemplateRegistry as get_template
 from eval_anything.models.base_model import BaseModel
 
 class AccelerateMultimodalModel(BaseModel):
@@ -26,6 +22,9 @@ class AccelerateMultimodalModel(BaseModel):
         
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
+        self.chat_template = self.model_cfgs.chat_template
+        self.template = get_template(self.chat_template)
+
         self.model_max_length = self.infer_cfgs.model_max_length
         self.max_new_tokens = self.infer_cfgs.max_new_tokens
 
@@ -54,7 +53,13 @@ class AccelerateMultimodalModel(BaseModel):
         return self._generation(inputs)
 
     def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
-        prompts = [input.text for input in input_list]
+        prompts = [
+            self.template.system_prompt
+            + self.template.user_prompt.format(input=input.text)
+            + self.template.assistant_prompt.format(output='')
+            for input in input_list
+        ]
+
         if input_list and input_list[0].mm_data and input_list[0].mm_data[0].url:
             image_files = [input.mm_data[0].url for input in input_list]
             self.modality = input_list[0].mm_data[0].modality
@@ -62,7 +67,7 @@ class AccelerateMultimodalModel(BaseModel):
             image_files = [input.mm_data[0].file for input in input_list]
             self.modality = input_list[0].mm_data[0].modality
         else:
-            raise ValueError("Each input item must have either 'urls' or 'data_files'.")
+            raise ValueError("Each input item must have either 'url' or 'file'.")
 
         outputs = []
         for prompt, image_file in zip(prompts, image_files):
@@ -73,9 +78,7 @@ class AccelerateMultimodalModel(BaseModel):
             else:
                 raise ValueError("image_file is neither a PIL Image nor a string.")
 
-            messages = get_messages(self.modality, prompt)
-            text = self.processor.apply_chat_template(messages, add_generation_prompt=True)
-            inputs = self.processor(images=image, text=text, return_tensors="pt")
+            inputs = self.processor(images=image, text=prompt, return_tensors="pt")
             inputs = inputs.to(self.accelerator.device)
             generated_ids = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens)
             generated_ids_trimmed = [
@@ -84,10 +87,10 @@ class AccelerateMultimodalModel(BaseModel):
             output = self.processor.batch_decode(
                 generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
             )
-            outputs.append(output)
+            outputs.append(output[0])
 
         inference_outputs = [
-            InferenceOutput.from_vllm_output(task=input.task, uuid=input.uuid, vllm_output=output, store_raw=True)
+            InferenceOutput.from_data(question_id=input.uuid, prompt=input.text, response=output, store_raw=True)
             for input, output in zip(input_list, outputs)
         ]
 

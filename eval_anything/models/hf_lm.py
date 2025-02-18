@@ -2,15 +2,12 @@
 (t2t)支持transformers+accelerate推理
 """
 
-import json
-import os
 import torch
 from typing import Any, Dict, List
-
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from accelerate import Accelerator
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
-from eval_anything.utils.utils import UUIDGenerator
+from eval_anything.utils.register import TemplateRegistry as get_template
 from eval_anything.models.base_model import BaseModel
 
 class AccelerateModel(BaseModel):
@@ -20,6 +17,9 @@ class AccelerateModel(BaseModel):
         
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
+        self.chat_template = self.model_cfgs.chat_template
+        self.template = get_template(self.chat_template)
+
         self.model_max_length = self.infer_cfgs.model_max_length
 
         self.task2details = {}
@@ -40,7 +40,12 @@ class AccelerateModel(BaseModel):
         return self._generation(inputs)
 
     def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
-        prompts = [input.text for input in input_list]
+        prompts = [
+            self.template.system_prompt
+            + self.template.user_prompt.format(input=input.text)
+            + self.template.assistant_prompt.format(output='')
+            for input in input_list
+        ]
         encoded_inputs = self.tokenizer(prompts, padding=True, truncation=True, max_length=self.model_max_length, return_tensors="pt")
 
         with torch.no_grad():
@@ -50,10 +55,14 @@ class AccelerateModel(BaseModel):
                 max_length=self.model_max_length,
                 num_return_sequences=1,
             )
+            responses = [
+                self.tokenizer.decode(output[encoded_inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
+                for output in outputs
+            ]
 
         inference_outputs = [
-            InferenceOutput.from_vllm_output(task=input.task, uuid=input.uuid, vllm_output=output, store_raw=True)
-            for input, output in zip(input_list, outputs)
+            InferenceOutput.from_data(question_id=input.uuid, prompt=input.text, response=response, store_raw=True)
+            for input, response in zip(input_list, responses)
         ]
 
         return inference_outputs

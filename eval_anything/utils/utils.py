@@ -199,17 +199,3 @@ def parse_unknown_args(args):
         else:
             i += 1
     return unknown_args
-
-def get_messages(key, prompt):
-    messages = {
-        "ti2t": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image"},
-                ],
-            }
-        ],
-    }
-    return messages.get(key, [])
