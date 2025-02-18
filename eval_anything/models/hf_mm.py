@@ -16,7 +16,7 @@ from accelerate import Accelerator
 import torch
 from PIL import Image
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
-from eval_anything.utils.utils import UUIDGenerator
+from eval_anything.utils.utils import get_messages
 from eval_anything.models.base_model import BaseModel
 
 class AccelerateMultimodalModel(BaseModel):
