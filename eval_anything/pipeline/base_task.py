@@ -14,6 +14,10 @@ from eval_anything.evaluate_tools.t2t_tools import *
 from eval_anything.evaluate_tools.metrics import MetricCalculator
 from eval_anything.utils.utils import UUIDGenerator, read_cfgs_from_yaml, update_dict, custom_cfgs_to_dict, BENCHMARK_MODALITY_MAP
 import importlib
+import json
+import hashlib
+from vllm.sequence import Logprob
+from vllm.sequence import RequestOutput
 
 
 class BaseTask(ABC):
@@ -21,7 +25,7 @@ class BaseTask(ABC):
         # TODO 初始化数据集、模型、logger、任务列表
         self.logger = EvalLogger('Evaluation')
         self.eval_cfgs, self.model_cfgs, self.infer_cfgs = self.get_overall_configs(overall_cfgs_name, **kwargs)
-        self.save_cache = True if self.eval_cfgs["cache_dir"] else False
+        self.enable_cache = True if self.eval_cfgs["cache_dir"] else False
         self.output_path = self.eval_cfgs["output_dir"]
         self.model = self.load_model(self.model_cfgs, self.infer_cfgs)
     
@@ -119,7 +123,7 @@ class BaseTask(ABC):
         input_data_batches = [input_list[i:i+batch_size] for i in range(0, len(input_list), batch_size)]
         inference_outputs = []
         for input_data_batch in input_data_batches:
-            if self.save_cache:
+            if self.enable_cache:
                 cache_path, cache_exist = self.get_cache_path(self.model_cfgs, input_data_batch)
                 if cache_exist:
                     inference_outputs.extend(self.load_cache(os.path.join(self.eval_cfgs["cache_dir"], cache_path)))
@@ -178,8 +182,7 @@ class BaseTask(ABC):
         self.save_single_result(self.output_path, result)
         return result
     
-    def get_cache_path(self, model_cfgs: dict, input_data: list[InferenceInput]):
-        # TODO 获取cache路径并检查是否存在
+    def get_cache_path(self, model_cfgs: dict, input_data: list[InferenceInput]) -> tuple[str, bool]:
         """Get cache path and check if it exists
         Args:
             model_cfgs (dict): model configs
@@ -189,26 +192,203 @@ class BaseTask(ABC):
             cache_path (str): cache path
             cache_exist (bool): whether the cache exists
         """
-    
+        # Create a unique identifier based on model config and input data
+        model_name = model_cfgs.get('model_name_or_path', 'unknown_model')
+        
+        # Use the built-in __repr__ method to get consistent string representation
+        input_strings = [repr(data) for data in input_data]
+        
+        # Sort for consistency and create hash
+        input_strings.sort()
+        inputs_hash = hashlib.md5(''.join(input_strings).encode()).hexdigest()
+        
+        if model_cfgs['model_type'] == 'LM':
+            # Use JSON for pure text-based outputs
+            cache_path = os.path.join(model_name, f"{inputs_hash}.json")
+        elif model_cfgs['model_type'] == 'MM':
+            task_type = model_cfgs.get('task_type', '').lower()
+            if task_type in ['t2i', 'multi']:
+                # Use Parquet for tasks involving images
+                cache_path = os.path.join(model_name, f"{inputs_hash}.parquet")
+            elif task_type in ['i2t', 'vqa']:
+                # Use JSON for text-only outputs in MM tasks
+                cache_path = os.path.join(model_name, f"{inputs_hash}.json")
+            elif task_type in ['t2a', 'a2t', 'asr', 'tts']:
+                # Use HDF5 for audio-related tasks
+                cache_path = os.path.join(model_name, f"{inputs_hash}.h5")
+            else:
+                raise NotImplementedError(
+                    f"MM task type {task_type} is not supported."
+                )
+        else:
+            raise NotImplementedError(
+                f"Model type {model_cfgs['model_type']} is not supported."
+            )   
+        
+        cache_exist = os.path.exists(os.path.join(self.eval_cfgs["cache_dir"], cache_path))
+        return cache_path, cache_exist
+
     def save_cache(self, cache_path: str, inference_outputs: list[InferenceOutput]):
-        # TODO 将中间结果保存为cache
         """Save inference outputs as cache
         Args:
             cache_path (str): cache path
             inference_outputs (list[InferenceOutput]): inference outputs
+        Returns:
+            None
         """
-        pass
-    
-    def load_cache(self, cache_path: str):
-        # TODO 从cache中加载中间结果
+        # If the cache already exists, raise error
+        if os.path.exists(cache_path):
+            raise FileExistsError(
+                f"Cache file {cache_path} already exists."
+            )      
+        
+        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+
+        file_format = os.path.splitext(cache_path)[1].lower()
+        
+        cache_data = []
+        for output in inference_outputs:
+            # Create base cache entry with required fields
+            cache_entry = {
+                'task': output.task,
+                'uuid': output.uuid,
+                'response': output.response,
+                'engine': output.engine
+            }
+        
+            # Add optional fields if they exist
+            if output.response_token_ids is not None:
+                cache_entry['response_token_ids'] = output.response_token_ids
+        
+            # Serialize response_logprobs (PromptLogprobs)
+            if output.response_logprobs is not None:
+                cache_entry['response_logprobs'] = [
+                    None if logprob_dict is None else {
+                        str(token_id): {
+                            'logprob': logprob.logprob,
+                            'rank': logprob.rank,
+                            'decoded_token': logprob.decoded_token
+                        } for token_id, logprob in logprob_dict.items()
+                    }
+                    for logprob_dict in output.response_logprobs
+                ]
+            # Serialize raw_output (RequestOutput)
+            if output.raw_output is not None:
+                cache_entry['raw_output'] = {
+                    'request_id': output.raw_output.request_id,
+                    'prompt': output.raw_output.prompt,
+                    'prompt_token_ids': output.raw_output.prompt_token_ids,
+                    'prompt_logprobs': [
+                        None if logprob_dict is None else {
+                            str(token_id): {
+                                'logprob': logprob.logprob,
+                                'rank': logprob.rank,
+                                'decoded_token': logprob.decoded_token
+                            } for token_id, logprob in logprob_dict.items()
+                        }   
+                        for logprob_dict in (output.raw_output.prompt_logprobs or [])
+                    ],
+                    'outputs': [
+                        {
+                            'text': output.text,
+                            'token_ids': output.token_ids,
+                            'cumulative_logprob': output.cumulative_logprob,
+                            'logprobs': output.logprobs,
+                            'finish_reason': output.finish_reason
+                        } for output in output.raw_output.outputs
+                    ],
+                    'finished': output.raw_output.finished
+                }
+        
+            cache_data.append(cache_entry)
+        
+        if file_format == '.json':
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(cache_data, f, ensure_ascii=False, indent=2)  
+        else:
+            raise NotImplementedError(
+                f"Cache format {file_format} is not supported."
+            )
+
+        # TODO MultiModalData, need to adapt InferenceOutput
+        # TODO Other cache file format than json, such as parquet, hdf5, etc.
+
+    def load_cache(self, cache_path: str) -> list[InferenceOutput]:
         """Load inference outputs from cache
         Args:
             cache_path (str): cache path
             
         Returns:
-            inference_outputs (list[InferenceOutput]): inference outputs
+            inference_outputs (list[InferenceOutput]): inference outputs    
         """
-        pass
+        file_format = os.path.splitext(cache_path)[1].lower()
+        if file_format == '.json':
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+        else:
+            raise NotImplementedError(
+                f"Cache format {file_format} is not supported."
+            )   
+        
+        inference_outputs = []
+        for data in cache_data:
+            # Deserialize response_logprobs if present
+            response_logprobs = None
+            if 'response_logprobs' in data:
+                response_logprobs = [
+                    None if logprob_dict is None else {
+                        int(token_id): Logprob(
+                            logprob=info['logprob'],
+                            rank=info['rank'],
+                            decoded_token=info['decoded_token']
+                        ) for token_id, info in logprob_dict.items()
+                    }
+                    for logprob_dict in data['response_logprobs']
+                ]
+            
+            # Deserialize raw_output if present
+            raw_output = None
+            if 'raw_output' in data:
+                raw_data = data['raw_output']
+                prompt_logprobs = None
+                if raw_data.get('prompt_logprobs'):
+                    prompt_logprobs = [
+                        None if logprob_dict is None else {
+                            int(token_id): Logprob(
+                                logprob=info['logprob'],
+                                rank=info['rank'],
+                                decoded_token=info['decoded_token']
+                            ) for token_id, info in logprob_dict.items()
+                        }
+                        for logprob_dict in raw_data['prompt_logprobs']
+                    ]
+                
+                raw_output = RequestOutput(
+                    request_id=raw_data['request_id'],
+                    prompt=raw_data['prompt'],
+                    prompt_token_ids=raw_data['prompt_token_ids'],
+                    prompt_logprobs=prompt_logprobs,
+                    outputs=raw_data['outputs'],
+                    finished=raw_data['finished']
+                )
+            
+            # Create InferenceOutput with all fields
+            output = InferenceOutput(
+                task=data['task'],
+                uuid=data['uuid'],
+                response=data['response'],
+                engine=data['engine'],
+                response_token_ids=data.get('response_token_ids'),
+                response_logprobs=response_logprobs,
+                raw_output=raw_output
+            )
+            inference_outputs.append(output)
+        
+        # TODO MultiModalData, need to adapt InferenceOutput
+        # TODO Other cache file format than json, such as parquet, hdf5, etc.
+
+        return inference_outputs
+        
     
     def shutdown_model(self):
         # TODO 关闭模型
