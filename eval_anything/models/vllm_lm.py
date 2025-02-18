@@ -15,14 +15,15 @@ from eval_anything.utils.utils import UUIDGenerator
 from eval_anything.models.base_model import BaseModel
 
 class vllmLM(BaseModel):
-    def __init__(self, model_cfgs: Dict[str, Any], vllm_cfgs, **kwargs):
+    def __init__(self, model_cfgs: Dict[str, Any], vllm_cfgs, infer_cfgs, **kwargs):
         self.vllm_cfgs_sp, self.vllm_cfgs_llm = vllm_cfgs.SamplingParams, vllm_cfgs.LLM
         self.model_cfgs = model_cfgs
+        self.infer_cfgs = infer_cfgs
         self.sp_n = self.vllm_cfgs_sp.n
         self.sp_top_k = self.vllm_cfgs_sp.top_k
         self.sp_top_p = self.vllm_cfgs_sp.top_p
         self.sp_temperature = self.vllm_cfgs_sp.temperature
-        self.sp_max_tokens = self.model_cfgs.model_max_length
+        self.sp_max_tokens = self.infer_cfgs.model_max_length
         self.sp_prompt_logprobs = self.vllm_cfgs_sp.prompt_logprobs
         self.sp_logprobs = self.vllm_cfgs_sp.logprobs
 
@@ -35,8 +36,8 @@ class vllmLM(BaseModel):
 
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
-        self.llm_trust_remote_code = self.model_cfgs.trust_remote_code
-        self.sp_max_tokens = self.model_cfgs.model_max_length
+        self.llm_trust_remote_code = self.infer_cfgs.trust_remote_code
+        self.sp_max_tokens = self.infer_cfgs.model_max_length
 
         self.task2details = {}
         self.detailed_filename = f'{self.model_id}_detailed'

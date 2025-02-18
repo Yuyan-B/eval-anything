@@ -14,14 +14,13 @@ from eval_anything.utils.utils import UUIDGenerator
 from eval_anything.models.base_model import BaseModel
 
 class AccelerateModel(BaseModel):
-    def __init__(self, model_cfgs: Dict[str, Any], accelerate_cfgs, **kwargs):
+    def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
         self.model_cfgs = model_cfgs
-        self.accelerate_cfgs = accelerate_cfgs
+        self.infer_cfgs = infer_cfgs
         
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
-        self.model_max_length = self.model_cfgs.model_max_length
-        self.model_device = self.accelerate_cfgs.device
+        self.model_max_length = self.infer_cfgs.model_max_length
 
         self.task2details = {}
         self.detailed_filename = f'{self.model_id}_detailed'
@@ -40,16 +39,8 @@ class AccelerateModel(BaseModel):
     def generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]: 
         return self._generation(inputs)
 
-    def _generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]:
-        input_list = []
-        for task, data_list in inputs.items():
-            for data in data_list:
-                data.uuid = UUIDGenerator()(data)
-                data.task = task
-                input_list.append(data)
-
+    def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
         prompts = [input.text for input in input_list]
-        
         encoded_inputs = self.tokenizer(prompts, padding=True, truncation=True, max_length=self.model_max_length, return_tensors="pt")
 
         with torch.no_grad():
@@ -60,16 +51,12 @@ class AccelerateModel(BaseModel):
                 num_return_sequences=1,
             )
 
-        InferenceOutputs = [
-            InferenceOutput.from_transformers_output(task=input.task, uuid=input.uuid, transformers_output=output, store_raw=True)
+        inference_outputs = [
+            InferenceOutput.from_vllm_output(task=input.task, uuid=input.uuid, vllm_output=output, store_raw=True)
             for input, output in zip(input_list, outputs)
         ]
-        
-        outputs = {task: [] for task in inputs.keys()}
-        for output in InferenceOutputs:
-            outputs[output.task].append(output)
 
-        return outputs
+        return inference_outputs
 
     # TODO
     def shutdown_model(self):
