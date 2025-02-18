@@ -19,21 +19,6 @@ from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.utils import UUIDGenerator
 from eval_anything.models.base_model import BaseModel
 
-
-def generate_message(key, prompt):
-    mappings = {
-        "ti2t": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image"},
-                ],
-            }
-        ],
-    }
-    return mappings.get(key, [])
-
 class AccelerateMultimodalModel(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
         self.model_cfgs = model_cfgs
@@ -88,7 +73,7 @@ class AccelerateMultimodalModel(BaseModel):
             else:
                 raise ValueError("image_file is neither a PIL Image nor a string.")
 
-            messages = generate_message(self.modality, prompt)
+            messages = get_messages(self.modality, prompt)
             text = self.processor.apply_chat_template(messages, add_generation_prompt=True)
             inputs = self.processor(images=image, text=text, return_tensors="pt")
             inputs = inputs.to(self.accelerator.device)
