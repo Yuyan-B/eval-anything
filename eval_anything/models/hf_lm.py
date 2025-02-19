@@ -9,6 +9,7 @@ from accelerate import Accelerator
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.register import TemplateRegistry as get_template
 from eval_anything.models.base_model import BaseModel
+from eval_anything.utils.utils import get_messages
 
 class AccelerateModel(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
@@ -18,9 +19,9 @@ class AccelerateModel(BaseModel):
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
         self.chat_template = self.model_cfgs.chat_template
-        self.template = get_template(self.chat_template)
 
         self.model_max_length = self.infer_cfgs.model_max_length
+        self.max_new_tokens = self.infer_cfgs.max_new_tokens
 
         self.task2details = {}
         self.detailed_filename = f'{self.model_id}_detailed'
@@ -40,29 +41,53 @@ class AccelerateModel(BaseModel):
         return self._generation(inputs)
 
     def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
-        prompts = [
-            self.template.system_prompt
-            + self.template.user_prompt.format(input=input.text)
-            + self.template.assistant_prompt.format(output='')
-            for input in input_list
-        ]
-        encoded_inputs = self.tokenizer(prompts, padding=True, truncation=True, max_length=self.model_max_length, return_tensors="pt")
+        if self.chat_template:
+            self.template = get_template(self.chat_template)
+            prompts = [
+                self.template.system_prompt
+                + self.template.user_prompt.format(input=input.text)
+                + self.template.assistant_prompt.format(output='')
+                for input in input_list
+            ]
+            encoded_inputs = self.tokenizer(prompts, padding=True, truncation=True, max_length=self.model_max_length, return_tensors="pt")
 
-        with torch.no_grad():
             outputs = self.model.generate(
                 input_ids=encoded_inputs["input_ids"].to(self.accelerator.device),
                 attention_mask=encoded_inputs["attention_mask"].to(self.accelerator.device),
                 max_length=self.model_max_length,
                 num_return_sequences=1,
             )
+            output_ids = [output[encoded_inputs["input_ids"].shape[-1]:] for output in outputs]
             responses = [
-                self.tokenizer.decode(output[encoded_inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
-                for output in outputs
+                self.tokenizer.decode(output_id, skip_special_tokens=True)
+                for output_id in output_ids
+            ]
+            
+        else:
+            self.modality = 't2t'
+            input_ids = [
+                self.tokenizer.apply_chat_template(
+                    get_messages(self.modality, input.text),
+                    add_generation_prompt=True,
+                    return_tensors="pt"
+                )
+                for input in input_list
             ]
 
+            outputs = self.model.generate(
+                input_ids=input_ids.to(self.accelerator.device),
+                max_length=self.model_max_length,
+                num_return_sequences=1,
+            )
+            output_ids = [output[input_ids.shape[-1]:] for output in outputs]
+            responses = [
+                self.tokenizer.decode(output_id, skip_special_tokens=True)
+                for output_id in output_ids
+            ]
+        
         inference_outputs = [
-            InferenceOutput.from_data(question_id=input.uuid, prompt=input.text, response=response, store_raw=True)
-            for input, response in zip(input_list, responses)
+            InferenceOutput.from_hf_output(task=input.task, uuid=input.uuid, response=response, hf_output=output_id, store_raw=True)
+            for input, response, output_id in zip(input_list, responses, output_ids)
         ]
 
         return inference_outputs

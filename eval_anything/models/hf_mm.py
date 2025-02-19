@@ -14,6 +14,7 @@ from PIL import Image
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.register import TemplateRegistry as get_template
 from eval_anything.models.base_model import BaseModel
+from eval_anything.utils.utils import get_messages
 
 class AccelerateMultimodalModel(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
@@ -53,12 +54,19 @@ class AccelerateMultimodalModel(BaseModel):
         return self._generation(inputs)
 
     def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
-        prompts = [
-            self.template.system_prompt
-            + self.template.user_prompt.format(input=input.text)
-            + self.template.assistant_prompt.format(output='')
-            for input in input_list
-        ]
+        if self.chat_template:
+            self.template = get_template(self.chat_template)
+            prompts = [
+                self.template.system_prompt
+                + self.template.user_prompt.format(input=input.text)
+                + self.template.assistant_prompt.format(output='')
+                for input in input_list
+            ]
+        else:
+            prompts = [
+                self.processor.apply_chat_template(get_messages(self.modality, input.text), add_generation_prompt=True)
+                for input in input_list
+            ]
 
         if input_list and input_list[0].mm_data and input_list[0].mm_data[0].url:
             image_files = [input.mm_data[0].url for input in input_list]
@@ -70,6 +78,7 @@ class AccelerateMultimodalModel(BaseModel):
             raise ValueError("Each input item must have either 'url' or 'file'.")
 
         outputs = []
+        responses = []
         for prompt, image_file in zip(prompts, image_files):
             if isinstance(image_file, Image.Image):
                 image = image_file
@@ -80,18 +89,19 @@ class AccelerateMultimodalModel(BaseModel):
 
             inputs = self.processor(images=image, text=prompt, return_tensors="pt")
             inputs = inputs.to(self.accelerator.device)
-            generated_ids = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens)
-            generated_ids_trimmed = [
-                out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+            output_id = self.model.generate(**inputs, max_new_tokens=self.max_new_tokens)
+            outputs.append(output_id)
+            output_id_trimmed = [
+                out_ids[len(in_ids) :] for in_ids, out_ids in zip(inputs.input_ids, output_id)
             ]
-            output = self.processor.batch_decode(
-                generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            response = self.processor.batch_decode(
+                output_id_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
             )
-            outputs.append(output[0])
+            responses.append(response[0])
 
         inference_outputs = [
-            InferenceOutput.from_data(question_id=input.uuid, prompt=input.text, response=output, store_raw=True)
-            for input, output in zip(input_list, outputs)
+            InferenceOutput.from_hf_output(task=input.task, uuid=input.uuid, response=response, hf_output=output, store_raw=True)
+            for input, response, output in zip(input_list, responses, outputs)
         ]
 
         return inference_outputs

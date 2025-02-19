@@ -5,9 +5,11 @@
 from typing import Any, Dict, List
 from vllm import LLM, SamplingParams
 from vllm.utils import cuda_device_count_stateless
+from transformers import AutoTokenizer
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.register import TemplateRegistry as get_template
 from eval_anything.models.base_model import BaseModel
+from eval_anything.utils.utils import get_messages
 
 class vllmLM(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], vllm_cfgs, infer_cfgs, **kwargs):
@@ -67,12 +69,16 @@ class vllmLM(BaseModel):
         return self._generation(inputs)
 
     def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
-        prompts = [
-            self.template.system_prompt
-            + self.template.user_prompt.format(input=input.text)
-            + self.template.assistant_prompt.format(output='')
-            for input in input_list
-        ]
+        if self.chat_template:
+            self.template = get_template(self.chat_template)
+            prompts = [
+                self.template.system_prompt
+                + self.template.user_prompt.format(input=input.text)
+                + self.template.assistant_prompt.format(output='')
+                for input in input_list
+            ]
+        else:
+            prompts = [input.text for input in input_list]
 
         outputs = self.model.generate(
             prompts=prompts, sampling_params=self.samplingparams
