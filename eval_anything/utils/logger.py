@@ -1,7 +1,7 @@
 """
 评估日志记录工具
 
-TODO 从原库中copy，还需适配
+TODO 还需适配
     - 增加多模态信息的预览，可以放到wandb上
 """
 
@@ -63,7 +63,7 @@ class EvalLogger:
         title: str,
         columns: List[str] = None,
         rows: List[List[Any]] = None,
-        data: Dict[str, List[Any]] = None,
+        data: Dict[str, Dict[str, float]] = None,
         max_num_rows: int = None,
         to_csv: bool = False,
         csv_file: Optional[str] = None,
@@ -84,12 +84,25 @@ class EvalLogger:
                 table.add_row(*map(str, row))
 
         if data:
-            if max_num_rows:
-                data = {k: v[:max_num_rows] for k, v in data.items()}
-            num_rows = len(next(iter(data.values())))
-            for i in range(num_rows):
-                row = [data[col][i] for col in columns]
-                table.add_row(*map(str, row))
+            # if max_num_rows:
+            #     data = {k: v[:max_num_rows] for k, v in data.items()}
+            # num_rows = len(next(iter(data.values())))
+            # for i in range(num_rows):
+            #     row = [data[col][i] for col in columns]
+            #     table.add_row(*map(str, row))
+
+            all_metrics = set()
+            for metrics in data.values():
+                all_metrics.update(metrics.keys())
+            all_metrics = sorted(all_metrics)  # 确保列顺序一致
+            
+            table.add_column("Task Name")
+            for metric in all_metrics:
+                table.add_column(metric)
+            
+            for task, metrics in data.items():
+                row = [task] + [str(metrics.get(metric, "N/A")) for metric in all_metrics]
+                table.add_row(*row)
 
         self.console.print(table)
 

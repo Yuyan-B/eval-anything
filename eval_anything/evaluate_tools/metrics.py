@@ -1,10 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import List, Iterable, Union
+from typing import List, Iterable, Union, Dict
 from eval_anything.evaluate_tools.base_tools import BaseTool, BaseMetric
 from eval_anything.utils.register import MetricRegistry
 from eval_anything.utils.data_type import EvaluationResult
 
-# TODO 为每个metric提供一个_repr_
 class MetricCalculator(BaseTool):
     def __init__(self, metrics_list: List[dict]):
         self.metrics = []
@@ -13,7 +12,7 @@ class MetricCalculator(BaseTool):
             self.metrics.append(MetricRegistry.get_metric(metric['function']))
             self.metrics_args.append(metric['args'])
         
-    def apply(self, evaluation_results: List[EvaluationResult]):
+    def apply(self, evaluation_results: List[EvaluationResult]) -> Dict[str, float]:
         results = {}
         for metric, args in zip(self.metrics, self.metrics_args):
             results[metric.__name__] = metric(evaluation_results, **args)
@@ -89,3 +88,30 @@ class F1Score(BaseMetric):
         recall = Recall(evaluation_results, **kwargs)
         return 2 * precision * recall / (precision + recall)
 
+class OverallMetricCalculator(BaseTool):
+    def __init__(self, metric_name: str = 'overall_metric_mean'):
+        self.metric = MetricRegistry.get_metric(metric_name)
+
+    def apply(self, overall_evaluation_results: Dict[str, Dict[str, float]]) -> Dict[str, float]:
+        return self.metric(overall_evaluation_results)
+
+@MetricRegistry.register('overall_metric_mean')
+class OverallMetricMean(BaseMetric):
+    def calculate(self, overall_evaluation_results: Dict[str, Dict[str, float]], **kwargs) -> Dict[str, float]:
+        metric_sums = {}
+        metric_counts = {}
+        
+        for metrics in overall_evaluation_results.values():
+            for metric, value in metrics.items():
+                if metric not in metric_sums:
+                    metric_sums[metric] = 0.0
+                    metric_counts[metric] = 0
+                metric_sums[metric] += value
+                metric_counts[metric] += 1
+        
+        averages = {
+            metric: (metric_sums[metric] / metric_counts[metric]) if metric_counts[metric] > 0 else "N/A"
+            for metric in metric_sums
+        }
+        
+        return averages

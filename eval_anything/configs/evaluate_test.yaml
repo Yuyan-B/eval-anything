@@ -1,11 +1,11 @@
   # Evaluation configurations
   eval_cfgs:
     # Output directory
-    output_dir: null
+    output_dir: ../output
     # Cache directory, if not specified, cache will not be saved
-    cache_dir: null
+    cache_dir: ../cache
     # Unique identifier for current task
-    task_uid: null
+    task_uid: 111
     # benchmark name and task name, if the task list is empty, all tasks will be evaluated
     benchmarks: {
       "gsm8k": ["main"], 
