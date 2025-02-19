@@ -10,8 +10,7 @@ from functools import wraps
 from typing import Dict, Type, Optional, List
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from enum import Enum, auto
-from vllm.sequence import Logprob
+from vllm.sequence import Logprob, PromptLogprobs, SampleLogprobs
 from vllm.outputs import RequestOutput, RequestMetrics, CompletionOutput, LoRARequest
 from eval_anything.utils.data_type import InferenceOutput, MultiModalData, ModalityType
 
@@ -68,10 +67,10 @@ class TextModalitySerializer(BaseModalitySerializer):
         }
     
     def deserialize_input(self, data: dict) -> 'MultiModalData':
-        return MultiModalData(url=None, file=data['text'], modality=ModalityType.TEXT) 
+        return MultiModalData(url=None, file=data['text'], modality=ModalityType.TEXT) # TODO: Fix MultiModalData constructor
 
     def deserialize_output(self, data: dict) -> 'MultiModalData':
-        return MultiModalData(url=None, file=data['text'], modality=ModalityType.TEXT) 
+        return MultiModalData(url=None, file=data['text'], modality=ModalityType.TEXT) # TODO: Fix MultiModalData constructor
 
 @ModalitySerializerRegistry.register('image')
 class ImageModalitySerializer(BaseModalitySerializer):
@@ -88,10 +87,10 @@ class ImageModalitySerializer(BaseModalitySerializer):
         }
     
     def deserialize_input(self, data: dict) -> 'MultiModalData':
-        return MultiModalData(url=data['url'], file=None, modality=ModalityType.IMAGE) # TODO: Replace with actual file
+        return MultiModalData(url=data['url'], file=None, modality=ModalityType.IMAGE) # TODO: Fix constructor, replace with actual file
         
     def deserialize_output(self, data: dict) -> 'MultiModalData':
-        return MultiModalData(url=data['url'], file=None, modality=ModalityType.IMAGE) # TODO: Replace with actual file
+        return MultiModalData(url=data['url'], file=None, modality=ModalityType.IMAGE) # TODO: Fix constructor, replace with actual file
 
 class SerializerRegistry:
     """Registry for serializers"""
@@ -135,13 +134,14 @@ class BaseSerializer(ABC):
             for mm_data in output.mm_input_data:
                 modality = mm_data.get_modality()
                 serializer = ModalitySerializerRegistry.get(modality)
-                data['mm_input_data'].append(serializer.serialize(mm_data))
+                data['mm_input_data'].append(serializer.serialize_input(mm_data))
+                
         if hasattr(output, 'mm_output_data') and output.mm_output_data:
             data['mm_output_data'] = []
             for mm_data in output.mm_output_data:
                 modality = mm_data.get_modality()
                 serializer = ModalitySerializerRegistry.get(modality)
-                data['mm_output_data'].append(serializer.serialize(mm_data))
+                data['mm_output_data'].append(serializer.serialize_output(mm_data))
 
         return data
 
@@ -196,19 +196,19 @@ class VLLMSerializer(BaseSerializer):
     def _serialize_additional_fields(self, output: 'InferenceOutput') -> dict:
         """Hook for engine-specific serialization logic"""
         return {
-            'response_logprobs': self._serialize_logprobs(output.response_logprobs),
-            'raw_output': self._serialize_raw_output(output.raw_output)
+            'response_logprobs': self._serialize_promptlogprobs(getattr(output, 'response_logprobs', None)),
+            'raw_output': self._serialize_raw_output(getattr(output, 'raw_output', None))
         }
 
     def _deserialize_additional_fields(self, data: dict, output: 'InferenceOutput'):
         """Hook for engine-specific deserialization logic"""
         if 'response_logprobs' in data:
-            setattr(output, 'response_logprobs', self._deserialize_logprobs(data['response_logprobs']))
+            setattr(output, 'response_logprobs', self._deserialize_promptlogprobs(data['response_logprobs']))
         if 'raw_output' in data:
             setattr(output, 'raw_output', self._deserialize_raw_output(data['raw_output']))
         return output
 
-    def _serialize_logprobs(self, logprobs):
+    def _serialize_promptlogprobs(self, logprobs: 'PromptLogprobs') -> List[dict] | None:
         """Serialize logprobs"""
         if logprobs is None:
             return None
@@ -223,7 +223,20 @@ class VLLMSerializer(BaseSerializer):
             for logprob_dict in logprobs
         ]
 
-    def _serialize_raw_output(self, raw_output):
+    def _serialize_samplelogprobs(self, logprobs: 'SampleLogprobs') -> dict | None:
+        """Serialize logprobs"""
+        if logprobs is None:
+            return None
+        return {
+            str(token_id): {
+                'logprob': info.logprob,
+                'rank': info.rank,
+                'decoded_token': info.decoded_token
+            }
+            for token_id, info in logprobs.items()
+        }
+
+    def _serialize_raw_output(self, raw_output: 'RequestOutput') -> dict | None:
         """Serialize raw output"""
         if raw_output is None:
             return None
@@ -231,40 +244,55 @@ class VLLMSerializer(BaseSerializer):
             'request_id': raw_output.request_id,
             'prompt': raw_output.prompt,
             'prompt_token_ids': raw_output.prompt_token_ids,
-            'prompt_logprobs': self._serialize_logprobs(raw_output.prompt_logprobs),
+            'prompt_logprobs': self._serialize_promptlogprobs(getattr(raw_output, 'prompt_logprobs', None)),
             'outputs': [
                 {
                     'index': output.index,
                     'text': output.text,
-                    'token_ids': output.token_ids,
-                    'cumulative_logprob': output.cumulative_logprob,
-                    'logprobs': output.logprobs,
-                    'finish_reason': output.finish_reason,
-                    'stop_reason': output.stop_reason,
-                    'lora_request': self._serialize_lora_request(output.lora_request) if output.lora_request else None
+                    'token_ids': list(output.token_ids),
+                    'cumulative_logprob': getattr(output, 'cumulative_logprob', None),
+                    'logprobs': self._serialize_samplelogprobs(getattr(output, 'logprobs', None)),
+                    'finish_reason': getattr(output, 'finish_reason', None),
+                    'stop_reason': getattr(output, 'stop_reason', None),
+                    'lora_request': self._serialize_lora_request(getattr(output, 'lora_request', None))
                 }
                 for output in raw_output.outputs
             ],
             'finished': raw_output.finished,
-            'metrics': self._serialize_metrics(raw_output.metrics) if raw_output.metrics else None,
-            'lora_request': self._serialize_lora_request(raw_output.lora_request) if raw_output.lora_request else None
+            'metrics': self._serialize_metrics(getattr(raw_output, 'metrics', None)),
+            'lora_request': self._serialize_lora_request(getattr(raw_output, 'lora_request', None))
         }
 
-    def _deserialize_logprobs(self, data: dict) -> List[Optional[Dict[str, Dict[str, Dict[str, float]]]]]:
+    def _deserialize_promptlogprobs(self, data: dict) -> 'PromptLogprobs' | None:
         """Deserialize logprobs"""
+        if data is None:
+            return None
         return [
             None if logprob_dict is None else {
-                str(token_id): {
-                    'logprob': info.logprob,
-                    'rank': info.rank,
-                    'decoded_token': info.decoded_token
-                } for token_id, info in logprob_dict.items()
+                int(token_id): Logprob(
+                    logprob=info['logprob'],
+                    rank=info['rank'],
+                    decoded_token=info['decoded_token']
+                )
+                for token_id, info in logprob_dict.items()
             }
             for logprob_dict in data
         ]
     
+    def _deserialize_samplelogprobs(self, data: dict) -> 'SampleLogprobs' | None:
+        """Deserialize logprobs"""
+        if data is None:
+            return None
+        return {
+            int(token_id): Logprob(
+                logprob=info['logprob'],
+                rank=info['rank'],
+                decoded_token=info['decoded_token']
+            )
+            for token_id, info in data.items()
+        }
 
-    def _deserialize_raw_output(self, data: dict) -> 'RequestOutput':
+    def _deserialize_raw_output(self, data: dict) -> 'RequestOutput' | None:
         """Deserialize raw output"""
         if data is None:
             return None
@@ -272,26 +300,29 @@ class VLLMSerializer(BaseSerializer):
             request_id=data['request_id'],
             prompt=data['prompt'],
             prompt_token_ids=data['prompt_token_ids'],
-            prompt_logprobs=self._deserialize_logprobs(data['prompt_logprobs']),
+            prompt_logprobs=self._deserialize_promptlogprobs(data.get('prompt_logprobs')),
             outputs=self._deserialize_outputs(data['outputs']),
             finished=data['finished'],
-            metrics=self._deserialize_metrics(data['metrics']) if data['metrics'] else None,
-            lora_request=self._deserialize_lora_request(data['lora_request']) if data['lora_request'] else None
+            metrics=self._deserialize_metrics(data.get('metrics')),
+            lora_request=self._deserialize_lora_request(data.get('lora_request'))
         )
     
-    def _deserialize_outputs(self, data: dict) -> List['CompletionOutput']:
+    def _deserialize_outputs(self, data: List[dict]) -> List['CompletionOutput']:
+        """Deserialize outputs"""
+        if data is None:
+            return None
         return [
             CompletionOutput(
                 index=output['index'],
                 text=output['text'],
-                token_ids=output['token_ids'],
-                cumulative_logprob=output['cumulative_logprob'],
-                logprobs=output['logprobs'],
-                finish_reason=output['finish_reason'],
-                stop_reason=output['stop_reason'],
-                lora_request=output['lora_request'],
+                token_ids=tuple(output['token_ids']),
+                cumulative_logprob=output.get('cumulative_logprob', None),
+                logprobs=self._deserialize_samplelogprobs(output.get('logprobs', None)),
+                finish_reason=output.get('finish_reason', None),
+                stop_reason=output.get('stop_reason', None),
+                lora_request=self._deserialize_lora_request(output.get('lora_request', None))
             )
-            for output in data['outputs']
+            for output in data
         ]
 
     def _deserialize_metrics(self, metrics_data: List[dict]) -> List['RequestMetrics']:
@@ -318,8 +349,8 @@ class VLLMSerializer(BaseSerializer):
             lora_name=data['lora_name'],
             lora_int_id=data['lora_int_id'],
             lora_path=data['lora_path'],
-            lora_local_path=data['lora_local_path'] if hasattr(data, 'lora_local_path') else None,
-            long_lora_max_len=data['long_lora_max_len'] if hasattr(data, 'long_lora_max_len') else None
+            lora_local_path=data['lora_local_path'],
+            long_lora_max_len=data['long_lora_max_len']
         )
 
     def _serialize_metrics(self, metrics: List['RequestMetrics']) -> List[dict]:
@@ -330,10 +361,10 @@ class VLLMSerializer(BaseSerializer):
             {
                 'arrival_time': metric.arrival_time,
                 'last_token_time': metric.last_token_time,
-                'first_scheduled_time': metric.first_scheduled_time if hasattr(metric, 'first_scheduled_time') else None,
-                'first_token_time': metric.first_token_time if hasattr(metric, 'first_token_time') else None,
-                'time_in_queue': metric.time_in_queue if hasattr(metric, 'time_in_queue') else None,
-                'finished_time': metric.finished_time if hasattr(metric, 'finished_time') else None
+                'first_scheduled_time': getattr(metric, 'first_scheduled_time', None),
+                'first_token_time': getattr(metric, 'first_token_time', None),
+                'time_in_queue': getattr(metric, 'time_in_queue', None),
+                'finished_time': getattr(metric, 'finished_time', None)
             }
             for metric in metrics
         ]
@@ -346,8 +377,8 @@ class VLLMSerializer(BaseSerializer):
             'lora_name': lora_request.lora_name,
             'lora_int_id': lora_request.lora_int_id,
             'lora_path': lora_request.lora_path,
-            'lora_local_path': lora_request.lora_local_path if hasattr(lora_request, 'lora_local_path') else None,
-            'long_lora_max_len': lora_request.long_lora_max_len if hasattr(lora_request, 'long_lora_max_len') else None
+            'lora_local_path': getattr(lora_request, 'lora_local_path', None),
+            'long_lora_max_len': getattr(lora_request, 'long_lora_max_len', None)
         }
 
 # TODO: Add serializers for other backends

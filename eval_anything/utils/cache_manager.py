@@ -2,15 +2,14 @@
 Cache management utilities for storing and retrieving inference results.
 
 Engine 解耦：
-- 不同的 engine 产生的 InferenceOutput 有不同的数据结构和存储方式
+- 不同的 engine 产生的 raw output 有不同的数据结构
 - 因此需要为每个 engine 提供一个专门的 serializer
-- 在 save 方法中，根据 engine 选择相应的 serializer
-- 在 load 方法中，根据 engine 选择相应的 serializer
 
 MultiModality 
 - 不同的 modality 有不同的 serializer
-- 在 save 方法中，根据 modality 选择相应的 serializer
-- 在 load 方法中，根据 modality 选择相应的 serializer
+
+- 在 Serializer 和 Deserializer 中, 灵活组合不同engine和modality
+- CacheManager 只负责路径生成、存储和读取的逻辑
 """
 
 import os
