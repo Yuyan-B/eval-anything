@@ -7,13 +7,25 @@ TODO
 """
 from abc import ABC, abstractmethod
 import os
+import hashlib
+import importlib
+import json
+
+# Third-party imports
+from vllm.sequence import Logprob
+from vllm.sequence import RequestOutput
+
+# Local imports
 from eval_anything.utils.logger import EvalLogger
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput, EvaluationResult
 from eval_anything.models.base_model import MODEL_MAP, CLASS_MAP
 from eval_anything.evaluate_tools.t2t_tools import *
 from eval_anything.evaluate_tools.metrics import MetricCalculator
-from eval_anything.utils.utils import UUIDGenerator, read_cfgs_from_yaml, update_dict, custom_cfgs_to_dict, BENCHMARK_MODALITY_MAP
-import importlib
+from eval_anything.utils.utils import (
+    UUIDGenerator, read_cfgs_from_yaml, update_dict, 
+    custom_cfgs_to_dict, BENCHMARK_MODALITY_MAP
+)
+from eval_anything.utils.cache_manager import CacheManager
 
 
 class BaseTask(ABC):
@@ -21,9 +33,10 @@ class BaseTask(ABC):
         # TODO 初始化数据集、模型、logger、任务列表
         self.logger = EvalLogger('Evaluation')
         self.eval_cfgs, self.model_cfgs, self.infer_cfgs = self.get_overall_configs(overall_cfgs_name, **kwargs)
-        self.save_cache = True if self.eval_cfgs["cache_dir"] else False
+        self.enable_cache = True if self.eval_cfgs["cache_dir"] else False
         self.output_path = self.eval_cfgs["output_dir"]
         self.model = self.load_model(self.model_cfgs, self.infer_cfgs)
+        self.cache_manager = CacheManager(self.eval_cfgs["cache_dir"]) if self.enable_cache else None
     
     def load_configs(self, yaml_path: str):
         # TODO 获取配置，模态无感，在此基类开发
@@ -119,13 +132,17 @@ class BaseTask(ABC):
         input_data_batches = [input_list[i:i+batch_size] for i in range(0, len(input_list), batch_size)]
         inference_outputs = []
         for input_data_batch in input_data_batches:
-            if self.save_cache:
-                cache_path, cache_exist = self.get_cache_path(self.model_cfgs, input_data_batch)
+            if self.enable_cache:
+                cache_path, cache_exist = self.cache_manager.get_cache_path(
+                    self.model_cfgs, 
+                    input_data_batch
+                )
                 if cache_exist:
-                    inference_outputs.extend(self.load_cache(os.path.join(self.eval_cfgs["cache_dir"], cache_path)))
+                    inference_outputs.extend(self.cache_manager.load(cache_path))
                 else:
-                    inference_outputs.extend(self.model_inference(model, input_data_batch))
-                    self.save_cache(os.path.join(self.eval_cfgs["cache_dir"], cache_path), inference_outputs)
+                    batch_outputs = self.model_inference(model, input_data_batch)
+                    inference_outputs.extend(batch_outputs)
+                    self.cache_manager.save(cache_path, batch_outputs)
             else:
                 inference_outputs.extend(self.model_inference(model, input_data_batch))
 
@@ -176,39 +193,7 @@ class BaseTask(ABC):
 
         result = self.calculate_metrics(benchmark_name, inference_outputs, self.benchmark_cfgs["metrics"])
         self.save_single_result(self.output_path, result)
-        return result
-    
-    def get_cache_path(self, model_cfgs: dict, input_data: list[InferenceInput]):
-        # TODO 获取cache路径并检查是否存在
-        """Get cache path and check if it exists
-        Args:
-            model_cfgs (dict): model configs
-            input_data (list[InferenceInput]): input data
-            
-        Returns:
-            cache_path (str): cache path
-            cache_exist (bool): whether the cache exists
-        """
-    
-    def save_cache(self, cache_path: str, inference_outputs: list[InferenceOutput]):
-        # TODO 将中间结果保存为cache
-        """Save inference outputs as cache
-        Args:
-            cache_path (str): cache path
-            inference_outputs (list[InferenceOutput]): inference outputs
-        """
-        pass
-    
-    def load_cache(self, cache_path: str):
-        # TODO 从cache中加载中间结果
-        """Load inference outputs from cache
-        Args:
-            cache_path (str): cache path
-            
-        Returns:
-            inference_outputs (list[InferenceOutput]): inference outputs
-        """
-        pass
+        return result        
     
     def shutdown_model(self):
         # TODO 关闭模型

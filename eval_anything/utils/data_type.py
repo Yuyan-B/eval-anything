@@ -77,14 +77,28 @@ class InferenceInput:
         self,
         task: str,
         text: str,
-        urls: List[str] | str | None,
+        urls: List[str] | str | None = None,
         data_files = None,
         uuid: Dict[str, str] = None
     ):
         self.task = task
         self.text = text
+        self.uuid = uuid or {}
+
+        # FIXME: Decide data structure of urls
+        if isinstance(urls, str):
+            urls = [urls]
+        urls = urls or []
+
+        # FIXME: Decide data structure of data_files
+        if data_files is None:
+            data_files = [None] * len(urls)
+        elif isinstance(data_files, (str, bytes, PIL.Image.Image)):
+            data_files = [data_files]
+
+        # Create MultiModalData objects
+        # FIXME: mm_data: List[MultiModalData] or MultiModalData ?
         self.mm_data = [MultiModalData(url, file) for url, file in zip(urls, data_files)]
-        self.uuid = uuid
 
     def __repr__(self):
         return f'InferenceInput(' f'text={self.text!r}),' f'mm_data={self.mm_data!r})'
