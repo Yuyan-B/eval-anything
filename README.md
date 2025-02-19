@@ -61,6 +61,8 @@ pip install -e .
     - [ ] **$New$** 在dataloader中支持多轮对话数据的拼接
 - [x] 复用旧框架中的data_type, logger, template
 - [ ] **$New$** 设计更加完善的cache机制，保存中间推理和评测结果
+    - [x] T2T
+    - [ ] 多模态
 - [x] **$New$** 参考lm_eval重新开发pipeline基类，后续的benchmark适配（eval.py）完全以面向对象的形式进行开发
 - [x] **$New$** 开发evaluator.py（面向对象），实现常用评测指标的计算。例如win rate, pass rate, F1-Score, ASR, SD, word error rate (WER) (↓), BLEU(↑),  automatic speech recognition (ASR), perplexity
 - [x] 对传参体系进行重新设计
