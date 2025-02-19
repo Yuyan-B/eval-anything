@@ -31,8 +31,6 @@ class BaseDataLoader:
             eval_cfgs,
             data_cfgs,
         )
-        # TODO 参数列表
-        # self.action = self.eval_cfgs.action if self.eval_cfgs.action else 'generation'
         self.benchmark_name = self.data_cfgs.dataset['name']
         self.num_shot = self.eval_cfgs.n_shot[self.benchmark_name] if self.eval_cfgs.n_shot[self.benchmark_name] else 0
         self.cot = self.eval_cfgs.cot[self.benchmark_name] if self.eval_cfgs.cot[self.benchmark_name] else False
@@ -60,7 +58,7 @@ class BaseDataLoader:
                 dataset = load_dataset(self.data_dir, task['name'])
             self.few_shot_data = self.set_fewshot_dataset(dataset, task)
             prompt_builder = getattr(self, self.task_type_map[task['type']])
-            prompts[task['name']] = prompt_builder(dataset)
+            prompts[task['name']] = prompt_builder(task, dataset)
         return prompts
 
     def set_fewshot_dataset(self, task):
@@ -80,9 +78,9 @@ class BaseDataLoader:
         raise NotImplementedError
 
     @abstractmethod
-    def build_multi_choice_prompt(self, data):
+    def build_multi_choice_prompt(self, task: str, data: list[any]):
         raise NotImplementedError
 
     @abstractmethod
-    def build_dialogue_prompt(self, data):
+    def build_dialogue_prompt(self, task: str, data: list[any]):
         raise NotImplementedError

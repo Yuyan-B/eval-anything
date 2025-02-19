@@ -1,7 +1,6 @@
 from typing import Any, Dict, List
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 
-# TODO 以注册表的形式管理模型
 
 MODEL_MAP = {
     "vllm_LM": "vllm_lm",

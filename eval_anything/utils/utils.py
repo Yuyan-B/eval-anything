@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional
-from eval_anything.utils.data_type import InferenceInput
+from eval_anything.utils.data_type import InferenceInput, InferenceOutput, EvaluationResult
 from hashlib import sha256
 from eval_anything.utils.data_type import ModalityType
 import os
@@ -82,15 +82,17 @@ class UUIDGenerator():
 
         uuid_dict = {}
         for modality, data in modality_dict.items():
-            uuid_dict[modality] = self.generate_uuid(data, modality)
+            uuid_dict[modality] = self.generate_uuid(data.text, modality)
 
         data.uuid = uuid_dict
         return data
 
     # TODO 根据data和modality生成不同模态的uuid
     def generate_uuid(self, data: str, modality: str) -> str:
-        pass
-
+        if modality == 'text':
+            return sha256(data.encode()).hexdigest()
+        else:
+            raise ValueError(f"Unsupported modality: {modality}")
 
 def read_cfgs_from_yaml(yaml_relative_dir: str, yaml_name: str) -> dict[str, Any]:
     current_file_path = os.path.abspath(__file__)
@@ -199,3 +201,11 @@ def parse_unknown_args(args):
         else:
             i += 1
     return unknown_args
+
+def pair_data_via_uuid(inputs: list[InferenceInput], outputs: list[InferenceOutput | EvaluationResult]):
+    uuid_dict = {item.uuid: item for item in inputs}
+    results = []
+    for output in outputs:
+        if output.uuid in uuid_dict:
+            results.append((uuid_dict[output.uuid], output))
+    return results

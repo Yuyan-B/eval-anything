@@ -7,35 +7,39 @@ TODO
 """
 from abc import ABC, abstractmethod
 import os
+import hashlib
+import importlib
+import json
+import yaml
+from typing import Dict, List
+
+# Third-party imports
+# from vllm.sequence import Logprob
+# from vllm.sequence import RequestOutput
+
+# Local imports
 from eval_anything.utils.logger import EvalLogger
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput, EvaluationResult
 from eval_anything.models.base_model import MODEL_MAP, CLASS_MAP
 from eval_anything.evaluate_tools.t2t_tools import *
-from eval_anything.evaluate_tools.metrics import MetricCalculator
-from eval_anything.utils.utils import UUIDGenerator, read_cfgs_from_yaml, update_dict, custom_cfgs_to_dict, BENCHMARK_MODALITY_MAP
-import importlib
+from eval_anything.evaluate_tools.metrics import MetricCalculator, OverallMetricCalculator
+from eval_anything.utils.utils import (
+    UUIDGenerator, read_cfgs_from_yaml, update_dict, 
+    custom_cfgs_to_dict, BENCHMARK_MODALITY_MAP, pair_data_via_uuid
+)
+from eval_anything.utils.cache_manager import CacheManager
 
 
 class BaseTask(ABC):
     def __init__(self, overall_cfgs_name: str, **kwargs):
-        # TODO 初始化数据集、模型、logger、任务列表
-        self.logger = EvalLogger('Evaluation')
         self.eval_cfgs, self.model_cfgs, self.infer_cfgs = self.get_overall_configs(overall_cfgs_name, **kwargs)
-        self.save_cache = True if self.eval_cfgs["cache_dir"] else False
+        self.enable_cache = True if self.eval_cfgs["cache_dir"] else False
         self.output_path = self.eval_cfgs["output_dir"]
+        self.logger = EvalLogger('Evaluation', log_dir=self.output_path)
         self.model = self.load_model(self.model_cfgs, self.infer_cfgs)
-    
-    def load_configs(self, yaml_path: str):
-        # TODO 获取配置，模态无感，在此基类开发
-        """Load configs from yaml file
-        Args:
-            task_cfgs_path (str): task configs path
-        """
-        
-        pass
+        self.cache_manager = CacheManager(self.eval_cfgs["cache_dir"]) if self.enable_cache else None
 
     def get_overall_configs(self, overall_cfgs_name: str, **kwargs):
-        # TODO 获取配置，模态无感，在此基类开发
         """Get configs from yaml file
         Args:
             overall_cfgs_name (str): YAML filename for evaluation configurations in eval-anything/configs/.
@@ -58,7 +62,6 @@ class BaseTask(ABC):
         return eval_cfgs, model_cfgs, infer_cfgs
         
     def get_benchmark_dict(self) -> dict[str, list[str]]:
-        # TODO 获取任务列表，模态无感，在此基类开发
         """Get benchmark name from self.task_cfgs
             
         Returns:
@@ -67,7 +70,6 @@ class BaseTask(ABC):
         return self.eval_cfgs['benchmarks']
     
     def get_benchmark_cfgs(self, benchmark_name: str) -> dict:
-        # TODO 获取任务配置
         """Get benchmark configs from yaml file in benchmark folder
         Args:
             benchmark_name (str): benchmark name
@@ -80,7 +82,6 @@ class BaseTask(ABC):
 
     @abstractmethod
     def load_data(self, dataset_cfgs: dict):
-        # TODO 初始化一个dataloader类
         """Load evaluation dataset
         Args:
             dataset_cfgs (dict): dataset configs
@@ -98,8 +99,8 @@ class BaseTask(ABC):
         model = model_class(model_cfgs, infer_cfgs)
         return model
     
-    def batch_inference(self, model, input_dict: dict[str, list[InferenceInput]]):
-        # TODO 实现模型推理（调用models中的推理方式），需要支持多轮
+    def batch_inference(self, model, input_dict: dict[str, list[InferenceInput]]) -> dict[str, list[InferenceOutput]]:
+        # TODO 需要支持多轮
         """Model inference. Support multi-round inference.
         Args:
             input_data (list[InferenceInput]): input data
@@ -119,13 +120,17 @@ class BaseTask(ABC):
         input_data_batches = [input_list[i:i+batch_size] for i in range(0, len(input_list), batch_size)]
         inference_outputs = []
         for input_data_batch in input_data_batches:
-            if self.save_cache:
-                cache_path, cache_exist = self.get_cache_path(self.model_cfgs, input_data_batch)
+            if self.enable_cache:
+                cache_path, cache_exist = self.cache_manager.get_cache_path(
+                    self.model_cfgs, 
+                    input_data_batch
+                )
                 if cache_exist:
-                    inference_outputs.extend(self.load_cache(os.path.join(self.eval_cfgs["cache_dir"], cache_path)))
+                    inference_outputs.extend(self.cache_manager.load(cache_path))
                 else:
-                    inference_outputs.extend(self.model_inference(model, input_data_batch))
-                    self.save_cache(os.path.join(self.eval_cfgs["cache_dir"], cache_path), inference_outputs)
+                    batch_outputs = self.model_inference(model, input_data_batch)
+                    inference_outputs.extend(batch_outputs)
+                    self.cache_manager.save(cache_path, batch_outputs)
             else:
                 inference_outputs.extend(self.model_inference(model, input_data_batch))
 
@@ -135,7 +140,7 @@ class BaseTask(ABC):
         return outputs
 
     def model_inference(self, model, input_data: list[InferenceInput]):
-        # TODO 实现模型推理（调用models中的推理方式），需要支持多轮
+        # TODO 需要支持多轮
         """Model inference. Support multi-round inference.
         Args:
             input_data (list[InferenceInput]): input data
@@ -145,78 +150,52 @@ class BaseTask(ABC):
         """
         return model.generation(input_data)
     
-    def iterate_run(self):
-        # TODO 迭代任务列表，调用run执行任务
+    def iterate_run(self) -> list[dict[str, dict[str, float]]]:
         """Iterate benchmark list and run benchmarks"""
-        self.results = []
+        self.results = {}
         self.benchmark_dict = self.get_benchmark_dict()
         for benchmark_name, task_list in self.benchmark_dict.items():
-            result = self.run(benchmark_name, task_list)
-            self.results.append(result)
+            evaluation_details, evaluation_results = self.run(benchmark_name, task_list)
+            self.results[benchmark_name] = evaluation_results
         
-        self.display_task_results(self.results)
-        self.save_task_results(self.output_path, self.results)
+        self.display_task_results(self.benchmark_dict, self.results)
+        self.save_task_details()
         return self.results
     
-    def run(self, benchmark_name: str, task_list: list[str]):
-        # TODO 运行任务，调用inference进行推理，保存cache、调用calculate_metrics计算评测指标
+    def run(self, benchmark_name: str, task_list: list[str]) -> tuple[dict[str, list[EvaluationResult]], dict[str, dict[str, float]]]:
         """Run benchmark
         Args:
             benchmark_name (str): benchmark name
             
         Returns:
-            result (EvaluationResult): evaluation result
+            evaluation_details (dict[str, list[EvaluationResult]]): evaluation details
+            evaluation_results (dict[str, dict[str, float]]): evaluation results
         """
         self.benchmark_cfgs = self.get_benchmark_cfgs(benchmark_name)
-        
+
+        self.logger.log('info', f'Evaluating {benchmark_name}...')
+
         dataloader = self.load_data(self.eval_cfgs, self.benchmark_cfgs)
         input_data = dataloader.load_data(task_list)    # Input_data: list[InferenceInput]
         
         inference_outputs = self.batch_inference(self.model, input_data)
+        ref_answers = {task: self.get_ref_answer(input_data[task], inference_outputs[task]) for task in task_list}
+        evaluation_details = {}
+        evaluation_results = {}
+        for task in task_list:
+            evaluation_details[task], evaluation_results[task] = self.calculate_metrics(benchmark_name, inference_outputs[task], ref_answers[task], self.benchmark_cfgs["metrics"])
 
-        result = self.calculate_metrics(benchmark_name, inference_outputs, self.benchmark_cfgs["metrics"])
-        self.save_single_result(self.output_path, result)
-        return result
-    
-    def get_cache_path(self, model_cfgs: dict, input_data: list[InferenceInput]):
-        # TODO 获取cache路径并检查是否存在
-        """Get cache path and check if it exists
-        Args:
-            model_cfgs (dict): model configs
-            input_data (list[InferenceInput]): input data
-            
-        Returns:
-            cache_path (str): cache path
-            cache_exist (bool): whether the cache exists
-        """
-    
-    def save_cache(self, cache_path: str, inference_outputs: list[InferenceOutput]):
-        # TODO 将中间结果保存为cache
-        """Save inference outputs as cache
-        Args:
-            cache_path (str): cache path
-            inference_outputs (list[InferenceOutput]): inference outputs
-        """
-        pass
-    
-    def load_cache(self, cache_path: str):
-        # TODO 从cache中加载中间结果
-        """Load inference outputs from cache
-        Args:
-            cache_path (str): cache path
-            
-        Returns:
-            inference_outputs (list[InferenceOutput]): inference outputs
-        """
-        pass
+        overall_result = self.calculate_overall_metrics(result=evaluation_results)
+        evaluation_results['Overall'] = overall_result
+        self.display_benchmark_results(benchmark_name, evaluation_results)
+        self.save_benchmark_details(self.output_path, benchmark_name, input_data, evaluation_details)
+        return evaluation_details, evaluation_results
     
     def shutdown_model(self):
-        # TODO 关闭模型
         """Shutdown model"""
         self.model.shutdown()
     
-    def calculate_metrics(self, benchmark_name: str, inference_outputs: list[InferenceOutput], evaluate_tools: list[str], judge_methods: list[str], metrics_list: list[dict]):
-        # TODO 执行metric_calculator
+    def calculate_metrics(self, benchmark_name: str, inference_outputs: list[InferenceOutput], ref_answers: list[str], evaluate_tools: list[str], judge_methods: list[str], metrics_list: list[dict]):
         """Calculate metrics
         Args:
             benchmark_name (str): benchmark name
@@ -229,42 +208,79 @@ class BaseTask(ABC):
             result (EvaluationResult): evaluation result
         """
         extracted_results = {evaluate_tool: getattr(str, evaluate_tool)(inference_outputs) for evaluate_tool in evaluate_tools}
-        ground_truths = [self.get_ground_truth(inference_output) for inference_output in inference_outputs]
-        evaluation_results = [EvaluationResult(benchmark_name, inference_output, extracted_result, ground_truth, judge_methods) for inference_output, extracted_result, ground_truth in zip(inference_outputs, extracted_results, ground_truths)]
+        evaluation_details = [EvaluationResult(benchmark_name, inference_output, extracted_result, ref_answer, judge_methods) for inference_output, extracted_result, ref_answer in zip(inference_outputs, extracted_results, ref_answers)]
         metric_calculator = MetricCalculator(metrics_list)
-        statistics_results = metric_calculator(evaluation_results)
-        return statistics_results
+        evaluation_results = metric_calculator(evaluation_details)
+        return evaluation_details, evaluation_results
 
-    def get_ground_truth(self, inference_output: InferenceOutput):
-        # TODO 获取Ground Truth，待开发
-        pass
+    def get_ref_answer(self, input_data: list[InferenceInput], inference_outputs: list[InferenceOutput]) -> list[any]:
+        """Get reference answers from input data
+        Args:
+            input_data (list[InferenceInput]): input data
+            inference_outputs (list[InferenceOutput]): inference outputs
+            
+        Returns:
+            ref_answers (list[any]): reference answers
+        """
+        return [pair_data_via_uuid(input_data, inference_outputs)[0].ref_answer for input_data, inference_outputs in zip(input_data, inference_outputs)]
     
-    @abstractmethod
-    def display_task_results(self, results: list[EvaluationResult]):
-        # TODO 在命令行中打印结果
+    def display_benchmark_results(self, benchmark_name: str, result: Dict[str, Dict[str, float]]):
+        """Display single benchmark results in command line.
+        Args:
+            benchmark_name (str): benchmark name
+            result (Dict[str, Dict[str, float]): evaluation result
+        """
+        self.logger.print_table(title=f'{benchmark_name} Benchmark', data=result, to_csv=True)
+        self.logger.log('info', '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+        self.logger.log('info', f'Benchmark: {benchmark_name}')
+        self.logger.log('info', f"model_id: {self.model_cfgs['model_id'][0]},")
+        self.logger.log('info', f"num_fewshot: {self.eval_cfgs['num_fewshot'][0]},")
+        self.logger.log('info', f"chain_of_thought: {self.eval_cfgs['chain_of_thought'][0]},")
+        self.logger.log('info', '+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+    
+    def display_task_results(self, results: dict[str, dict[str, dict[str, float]]]):
         """Display overall evaluation results in command line.
         Args:
-            results (list[EvaluationResult]): evaluation results
+            results (list[dict[str, dict[str, float]]]): evaluation results
         """
-        pass
+        for benchmark_name, result in results.items():
+            current_result = {benchmark_name: result['Overall']}
+            self.logger.print_table(title=f'Brief Report of {benchmark_name}', data=current_result, to_csv=True, csv_file=f'{benchmark_name}_brief_report.csv')
     
-    @abstractmethod
-    def save_single_result(self, save_path: str, result: EvaluationResult):
-        # TODO 保存结果到指定路径
-        """Save evaluation result and config file of single benchmark.
-        Args:
-            save_path (str): save path
-            result (list[EvaluationResult]): evaluation result
-        """
-        pass
-    
-    @abstractmethod
-    def save_task_results(self, save_path: str, results: list[EvaluationResult]):
-        # TODO 保存所有结果到指定路径
+    def save_task_details(self, save_path: str):
         """Save overall evaluation results, including all benchmark results.
         Args:
             save_path (str): save path
             results (list[EvaluationResult]): evaluation results
         """
-        pass
+        output_yaml = {
+            'eval_cfgs': self.eval_cfgs,
+            'model_cfgs': self.model_cfgs,
+            'infer_cfgs': self.infer_cfgs,
+            'results': self.results
+        }
+        with open(os.path.join(save_path, 'evaluation_details.yaml'), 'w') as f:
+            yaml.dump(output_yaml, f)
     
+    def calculate_overall_metrics(self, metric_name: str | None = None, result: dict[str, dict[str, float]] = None):
+        """Calculate overall metrics
+        Args:
+            metric_name (str): metric name
+            result (dict[str, dict[str, float]]): evaluation result
+            
+        Returns:
+            overall_metrics (dict[str, float]): overall metrics
+        """
+        overall_metric_calculator = OverallMetricCalculator(metric_name)
+        return overall_metric_calculator(result)
+    
+    @abstractmethod
+    def save_benchmark_details(self, save_path: str, benchmark_name: str, inputs: Dict[str, List[InferenceInput]], results: Dict[str, List[EvaluationResult]]):
+        """Save evaluation result and config file of single benchmark.
+        Args:
+            save_path (str): save path
+            benchmark_name (str): benchmark name
+            inputs (dict[str, List[InferenceInput]]): evaluation inputs
+            results (dict[str, List[EvaluationResult]]): evaluation results
+        """
+        pass

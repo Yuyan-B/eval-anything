@@ -3,7 +3,7 @@
 InferenceInput: 存储经过dataloader处理后的数据
 EvaluationResult: 存储评估结果
 
-TODO 从原库中copy，还需适配
+TODO 还需适配
 """
 
 
@@ -77,14 +77,30 @@ class InferenceInput:
         self,
         task: str,
         text: str,
-        urls: List[str] | str | None,
+        urls: List[str] | str | None = None,
         data_files = None,
+        ref_answer: str | None = None,
         uuid: Dict[str, str] = None
     ):
         self.task = task
         self.text = text
+        self.uuid = uuid or {}
+        self.ref_answer = ref_answer    # ground_truth
+
+        # FIXME: Decide data structure of urls
+        if isinstance(urls, str):
+            urls = [urls]
+        urls = urls or []
+
+        # FIXME: Decide data structure of data_files
+        if data_files is None:
+            data_files = [None] * len(urls)
+        elif isinstance(data_files, (str, bytes, PIL.Image.Image)):
+            data_files = [data_files]
+
+        # Create MultiModalData objects
+        # FIXME: mm_data: List[MultiModalData] or MultiModalData ?
         self.mm_data = [MultiModalData(url, file) for url, file in zip(urls, data_files)]
-        self.uuid = uuid
 
     def __repr__(self):
         return f'InferenceInput(' f'text={self.text!r}),' f'mm_data={self.mm_data!r})'
@@ -217,6 +233,13 @@ class EvaluationResult:
     def judge(self, judge_methods: List[str]) -> Dict[str, bool | float]:
         # judge_methods = [getattr(str, T2T_JUDGER_MAP[judge_method]) for judge_method in judge_methods]
         return {judge_method: getattr(str, T2T_JUDGER_MAP[judge_method])(self.extracted_result, self.ground_truth) for judge_method in judge_methods}
+    
+    def to_dict(self) -> dict:
+        return {
+            'inference_output': self.inference_output,
+            'extracted_result': self.extracted_result,
+            'ground_truth': self.ground_truth,
+        }
 
 @dataclass
 class SingleInput:
