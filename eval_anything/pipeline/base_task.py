@@ -7,18 +7,25 @@ TODO
 """
 from abc import ABC, abstractmethod
 import os
+import hashlib
+import importlib
+import json
+
+# Third-party imports
+from vllm.sequence import Logprob
+from vllm.sequence import RequestOutput
+
+# Local imports
 from eval_anything.utils.logger import EvalLogger
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput, EvaluationResult
 from eval_anything.models.base_model import MODEL_MAP, CLASS_MAP
 from eval_anything.evaluate_tools.t2t_tools import *
 from eval_anything.evaluate_tools.metrics import MetricCalculator
-from eval_anything.utils.utils import UUIDGenerator, read_cfgs_from_yaml, update_dict, custom_cfgs_to_dict, BENCHMARK_MODALITY_MAP
-import importlib
-import json
-import hashlib
-from vllm.sequence import Logprob
-from vllm.sequence import RequestOutput
-from eval_anything.utils.cache_manager import get_cache_path, load_cache, save_cache
+from eval_anything.utils.utils import (
+    UUIDGenerator, read_cfgs_from_yaml, update_dict, 
+    custom_cfgs_to_dict, BENCHMARK_MODALITY_MAP
+)
+from eval_anything.utils.cache_manager import CacheManager
 
 
 class BaseTask(ABC):
@@ -29,11 +36,7 @@ class BaseTask(ABC):
         self.enable_cache = True if self.eval_cfgs["cache_dir"] else False
         self.output_path = self.eval_cfgs["output_dir"]
         self.model = self.load_model(self.model_cfgs, self.infer_cfgs)
-        if self.enable_cache:
-            if self.model_cfgs['model_type'] == 'LM':
-                self.cache_manager = TextCacheManager(self.eval_cfgs["cache_dir"])
-            elif self.model_cfgs['model_type'] == 'MM':
-                self.cache_manager = MultiModalCacheManager(self.eval_cfgs["cache_dir"])
+        self.cache_manager = CacheManager(self.eval_cfgs["cache_dir"]) if self.enable_cache else None
     
     def load_configs(self, yaml_path: str):
         # TODO 获取配置，模态无感，在此基类开发
@@ -130,17 +133,16 @@ class BaseTask(ABC):
         inference_outputs = []
         for input_data_batch in input_data_batches:
             if self.enable_cache:
-                cache_path, cache_exist = get_cache_path(
-                    self.eval_cfgs["cache_dir"], 
+                cache_path, cache_exist = self.cache_manager.get_cache_path(
                     self.model_cfgs, 
                     input_data_batch
                 )
                 if cache_exist:
-                    inference_outputs.extend(load_cache(cache_path))
+                    inference_outputs.extend(self.cache_manager.load(cache_path))
                 else:
                     batch_outputs = self.model_inference(model, input_data_batch)
                     inference_outputs.extend(batch_outputs)
-                    save_cache(cache_path, batch_outputs)
+                    self.cache_manager.save(cache_path, batch_outputs)
             else:
                 inference_outputs.extend(self.model_inference(model, input_data_batch))
 

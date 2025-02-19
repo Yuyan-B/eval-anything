@@ -7,7 +7,7 @@ TODO:
 """
 
 from functools import wraps
-from typing import Dict, Type, Optional, List
+from typing import Dict, Type, Optional, List, Union
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from vllm.sequence import Logprob, PromptLogprobs, SampleLogprobs
@@ -54,6 +54,7 @@ class BaseModalitySerializer(ABC):
 
 @ModalitySerializerRegistry.register('text')
 class TextModalitySerializer(BaseModalitySerializer):
+    """Serializer for text modality"""
     def serialize_input(self, mm_data: 'MultiModalData') -> dict:
         return {
             'text': mm_data.text,
@@ -74,6 +75,7 @@ class TextModalitySerializer(BaseModalitySerializer):
 
 @ModalitySerializerRegistry.register('image')
 class ImageModalitySerializer(BaseModalitySerializer):
+    """Serializer for image modality"""
     def serialize_input(self, mm_data: 'MultiModalData') -> dict:
         return {
             'url': mm_data.url,
@@ -129,19 +131,19 @@ class BaseSerializer(ABC):
         
         # TODO:modality specific data
         # An example implementation of modality specific data serialization
-        if hasattr(output, 'mm_input_data') and output.mm_input_data:
-            data['mm_input_data'] = []
-            for mm_data in output.mm_input_data:
-                modality = mm_data.get_modality()
-                serializer = ModalitySerializerRegistry.get(modality)
-                data['mm_input_data'].append(serializer.serialize_input(mm_data))
+        #if hasattr(output, 'mm_input_data') and output.mm_input_data:
+        #    data['mm_input_data'] = []
+        #    for mm_data in output.mm_input_data:
+        #        modality = mm_data.get_modality()
+        #        serializer = ModalitySerializerRegistry.get(modality)
+        #        data['mm_input_data'].append(serializer.serialize_input(mm_data))
                 
-        if hasattr(output, 'mm_output_data') and output.mm_output_data:
-            data['mm_output_data'] = []
-            for mm_data in output.mm_output_data:
-                modality = mm_data.get_modality()
-                serializer = ModalitySerializerRegistry.get(modality)
-                data['mm_output_data'].append(serializer.serialize_output(mm_data))
+        #if hasattr(output, 'mm_output_data') and output.mm_output_data:
+        #    data['mm_output_data'] = []
+        #    for mm_data in output.mm_output_data:
+        #        modality = mm_data.get_modality()
+        #        serializer = ModalitySerializerRegistry.get(modality)
+        #        data['mm_output_data'].append(serializer.serialize_output(mm_data))
 
         return data
 
@@ -159,20 +161,24 @@ class BaseSerializer(ABC):
         if 'response_token_ids' in data:
             setattr(output, 'response_token_ids', data['response_token_ids'])
 
-        # TODO: modality specific data
-        # An example implementation of modality specific data deserialization
-        if 'mm_input_data' in data:
-            output.mm_input_data = []
-            for mm_data in data['mm_input_data']:
-                modality = mm_data['modality']
-                serializer = ModalitySerializerRegistry.get(modality)
-                setattr(output, 'mm_input_data', serializer.deserialize(mm_data))
-        if 'mm_output_data' in data:
-            output.mm_output_data = []
-            for mm_data in data['mm_output_data']:
-                modality = mm_data['modality']
-                serializer = ModalitySerializerRegistry.get(modality)
-                setattr(output, 'mm_output_data', serializer.deserialize(mm_data))
+        # TODO: modality specific data: below is a placeholder
+        # Initialize empty lists for multimodal data
+        # setattr(output, 'mm_input_data', [])
+        # setattr(output, 'mm_output_data', [])
+
+        # Handle multimodal input data
+        # if 'mm_input_data' in data:
+        #     for mm_data in data['mm_input_data']:
+        #         modality = mm_data['modality']
+        #         serializer = ModalitySerializerRegistry.get(modality)
+        #         output.mm_input_data.append(serializer.deserialize_input(mm_data))
+
+        # Handle multimodal output data 
+        # if 'mm_output_data' in data:
+        #     for mm_data in data['mm_output_data']:
+        #         modality = mm_data['modality']
+        #         serializer = ModalitySerializerRegistry.get(modality)
+        #         output.mm_output_data.append(serializer.deserialize_output(mm_data))
 
         # Add additional fields based on engine-specific data
         output = self._deserialize_additional_fields(data, output)
@@ -208,91 +214,39 @@ class VLLMSerializer(BaseSerializer):
             setattr(output, 'raw_output', self._deserialize_raw_output(data['raw_output']))
         return output
 
-    def _serialize_promptlogprobs(self, logprobs: 'PromptLogprobs') -> List[dict] | None:
-        """Serialize logprobs"""
-        if logprobs is None:
-            return None
-        return [
-            None if logprob_dict is None else {
-                str(token_id): {
-                    'logprob': info.logprob,
-                    'rank': info.rank,
-                    'decoded_token': info.decoded_token
-                } for token_id, info in logprob_dict.items()
-            }
-            for logprob_dict in logprobs
-        ]
-
-    def _serialize_samplelogprobs(self, logprobs: 'SampleLogprobs') -> dict | None:
-        """Serialize logprobs"""
-        if logprobs is None:
-            return None
-        return {
-            str(token_id): {
-                'logprob': info.logprob,
-                'rank': info.rank,
-                'decoded_token': info.decoded_token
-            }
-            for token_id, info in logprobs.items()
-        }
-
-    def _serialize_raw_output(self, raw_output: 'RequestOutput') -> dict | None:
+    # Core RequestOutput serialization methods
+    def _serialize_raw_output(self, raw_output: Union['RequestOutput', None]) -> Union[dict, None]:
         """Serialize raw output"""
         if raw_output is None:
             return None
-        return {
-            'request_id': raw_output.request_id,
-            'prompt': raw_output.prompt,
-            'prompt_token_ids': raw_output.prompt_token_ids,
-            'prompt_logprobs': self._serialize_promptlogprobs(getattr(raw_output, 'prompt_logprobs', None)),
-            'outputs': [
-                {
-                    'index': output.index,
-                    'text': output.text,
-                    'token_ids': list(output.token_ids),
-                    'cumulative_logprob': getattr(output, 'cumulative_logprob', None),
-                    'logprobs': self._serialize_samplelogprobs(getattr(output, 'logprobs', None)),
-                    'finish_reason': getattr(output, 'finish_reason', None),
-                    'stop_reason': getattr(output, 'stop_reason', None),
-                    'lora_request': self._serialize_lora_request(getattr(output, 'lora_request', None))
-                }
-                for output in raw_output.outputs
-            ],
-            'finished': raw_output.finished,
-            'metrics': self._serialize_metrics(getattr(raw_output, 'metrics', None)),
-            'lora_request': self._serialize_lora_request(getattr(raw_output, 'lora_request', None))
-        }
-
-    def _deserialize_promptlogprobs(self, data: dict) -> 'PromptLogprobs' | None:
-        """Deserialize logprobs"""
-        if data is None:
-            return None
-        return [
-            None if logprob_dict is None else {
-                int(token_id): Logprob(
-                    logprob=info['logprob'],
-                    rank=info['rank'],
-                    decoded_token=info['decoded_token']
-                )
-                for token_id, info in logprob_dict.items()
+        try:
+            return {
+                'request_id': getattr(raw_output, 'request_id', None),
+                'prompt': getattr(raw_output, 'prompt', ''),
+                'prompt_token_ids': getattr(raw_output, 'prompt_token_ids', []),
+                'prompt_logprobs': self._serialize_promptlogprobs(getattr(raw_output, 'prompt_logprobs', None)),
+                'outputs': [
+                    {
+                        'index': getattr(output, 'index', 0),
+                        'text': getattr(output, 'text', ''),
+                        'token_ids': list(output.token_ids) if hasattr(output, 'token_ids') and output.token_ids is not None else [],
+                        'cumulative_logprob': getattr(output, 'cumulative_logprob', None),
+                        'logprobs': self._serialize_samplelogprobs(getattr(output, 'logprobs', None)),
+                        'finish_reason': getattr(output, 'finish_reason', None),
+                        'stop_reason': getattr(output, 'stop_reason', None),
+                        'lora_request': self._serialize_lora_request(getattr(output, 'lora_request', None))
+                    }
+                    for output in getattr(raw_output, 'outputs', [])
+                ],
+                'finished': getattr(raw_output, 'finished', False),
+                'metrics': self._serialize_metrics(getattr(raw_output, 'metrics', None)),
+                'lora_request': self._serialize_lora_request(getattr(raw_output, 'lora_request', None))
             }
-            for logprob_dict in data
-        ]
-    
-    def _deserialize_samplelogprobs(self, data: dict) -> 'SampleLogprobs' | None:
-        """Deserialize logprobs"""
-        if data is None:
+        except Exception as e:
+            print(f"Error serializing raw_output: {e}")
             return None
-        return {
-            int(token_id): Logprob(
-                logprob=info['logprob'],
-                rank=info['rank'],
-                decoded_token=info['decoded_token']
-            )
-            for token_id, info in data.items()
-        }
 
-    def _deserialize_raw_output(self, data: dict) -> 'RequestOutput' | None:
+    def _deserialize_raw_output(self, data: dict) -> Union['RequestOutput', None]:
         """Deserialize raw output"""
         if data is None:
             return None
@@ -306,80 +260,170 @@ class VLLMSerializer(BaseSerializer):
             metrics=self._deserialize_metrics(data.get('metrics')),
             lora_request=self._deserialize_lora_request(data.get('lora_request'))
         )
-    
+
     def _deserialize_outputs(self, data: List[dict]) -> List['CompletionOutput']:
         """Deserialize outputs"""
         if data is None:
-            return None
-        return [
-            CompletionOutput(
-                index=output['index'],
-                text=output['text'],
-                token_ids=tuple(output['token_ids']),
-                cumulative_logprob=output.get('cumulative_logprob', None),
-                logprobs=self._deserialize_samplelogprobs(output.get('logprobs', None)),
-                finish_reason=output.get('finish_reason', None),
-                stop_reason=output.get('stop_reason', None),
-                lora_request=self._deserialize_lora_request(output.get('lora_request', None))
-            )
-            for output in data
-        ]
+            return []
+        try:
+            return [
+                CompletionOutput(
+                    index=output.get('index', 0),
+                    text=output.get('text', ''),
+                    token_ids=tuple(output.get('token_ids', [])),
+                    cumulative_logprob=output.get('cumulative_logprob'),
+                    logprobs=self._deserialize_samplelogprobs(output.get('logprobs')),
+                    finish_reason=output.get('finish_reason'),
+                    stop_reason=output.get('stop_reason'),
+                    lora_request=self._deserialize_lora_request(output.get('lora_request'))
+                )
+                for output in data
+            ]
+        except (KeyError, TypeError) as e:
+            print(f"Error deserializing outputs: {e}")
+            return []
 
-    def _deserialize_metrics(self, metrics_data: List[dict]) -> List['RequestMetrics']:
-        """Deserialize metrics"""
-        if not metrics_data:
+    # Logprobs serialization methods
+    def _serialize_promptlogprobs(self, logprobs: Union['PromptLogprobs', None]) -> Union[List[dict], None]:
+        """Serialize logprobs"""
+        if logprobs is None:
             return None
-        return [
-            RequestMetrics(
-                arrival_time=metric['arrival_time'],
-                last_token_time=metric['last_token_time'],
-                first_scheduled_time=metric['first_scheduled_time'],
-                first_token_time=metric['first_token_time'],
-                time_in_queue=metric['time_in_queue'],
-                finished_time=metric['finished_time']
-            )
-            for metric in metrics_data
-        ]
-
-    def _deserialize_lora_request(self, data: dict) -> 'LoRARequest':
-        """Deserialize LoRARequest"""
-        if not data:
+        try:
+            return [
+                None if logprob_dict is None else {
+                    str(token_id): {
+                        'logprob': info.logprob if hasattr(info, 'logprob') else None,
+                        'rank': info.rank if hasattr(info, 'rank') else None,
+                        'decoded_token': info.decoded_token if hasattr(info, 'decoded_token') else ''
+                    } for token_id, info in logprob_dict.items()
+                }
+                for logprob_dict in logprobs
+            ]
+        except (AttributeError, TypeError) as e:
+            # Log error but return None instead of failing
+            print(f"Error serializing promptlogprobs: {e}")
             return None
-        return LoRARequest(
-            lora_name=data['lora_name'],
-            lora_int_id=data['lora_int_id'],
-            lora_path=data['lora_path'],
-            lora_local_path=data['lora_local_path'],
-            long_lora_max_len=data['long_lora_max_len']
-        )
 
-    def _serialize_metrics(self, metrics: List['RequestMetrics']) -> List[dict]:
+    def _deserialize_promptlogprobs(self, data: List[dict]) -> Union['PromptLogprobs', None]:
+        """Deserialize logprobs"""
+        if data is None:
+            return None
+        try:
+            return [
+                None if logprob_dict is None else {
+                    int(token_id): Logprob(
+                        logprob=info.get('logprob', 0.0),
+                        rank=info.get('rank', 0),
+                        decoded_token=info.get('decoded_token', '')
+                    )
+                    for token_id, info in logprob_dict.items()
+                }
+                for logprob_dict in data
+            ]
+        except (KeyError, TypeError, ValueError) as e:
+            print(f"Error deserializing promptlogprobs: {e}")
+            return None
+
+    def _serialize_samplelogprobs(self, logprobs: Union['SampleLogprobs', None]) -> Union[dict, None]:
+        """Serialize logprobs"""
+        if logprobs is None:
+            return None
+        try:
+            return {
+                str(token_id): {
+                    'logprob': info.logprob if hasattr(info, 'logprob') else None,
+                    'rank': info.rank if hasattr(info, 'rank') else None,
+                    'decoded_token': info.decoded_token if hasattr(info, 'decoded_token') else ''
+                }
+                for token_id, info in logprobs.items()
+            }
+        except (AttributeError, TypeError) as e:
+            print(f"Error serializing samplelogprobs: {e}")
+            return None
+
+    def _deserialize_samplelogprobs(self, data: dict) -> Union['SampleLogprobs', None]:
+        """Deserialize logprobs"""
+        if data is None:
+            return None
+        try:
+            return {
+                int(token_id): Logprob(
+                    logprob=info.get('logprob', 0.0),
+                    rank=info.get('rank', 0),
+                    decoded_token=info.get('decoded_token', '')
+                )
+                for token_id, info in data.items()
+            }
+        except (KeyError, TypeError, ValueError) as e:
+            print(f"Error deserializing samplelogprobs: {e}")
+            return None
+
+    # Component serialization methods
+    def _serialize_metrics(self, metrics: Union['RequestMetrics', None]) -> Union[dict, None]:
         """Serialize metrics"""
         if not metrics:
             return None
-        return [
-            {
-                'arrival_time': metric.arrival_time,
-                'last_token_time': metric.last_token_time,
-                'first_scheduled_time': getattr(metric, 'first_scheduled_time', None),
-                'first_token_time': getattr(metric, 'first_token_time', None),
-                'time_in_queue': getattr(metric, 'time_in_queue', None),
-                'finished_time': getattr(metric, 'finished_time', None)
+        try:
+            return {
+                'arrival_time': getattr(metrics, 'arrival_time', None),
+                'last_token_time': getattr(metrics, 'last_token_time', None),
+                'first_scheduled_time': getattr(metrics, 'first_scheduled_time', None),
+                'first_token_time': getattr(metrics, 'first_token_time', None),
+                'time_in_queue': getattr(metrics, 'time_in_queue', None),
+                'finished_time': getattr(metrics, 'finished_time', None)
             }
-            for metric in metrics
-        ]
+        except AttributeError as e:
+            print(f"Error serializing metrics: {e}")
+            return None
 
-    def _serialize_lora_request(self, lora_request: 'LoRARequest') -> dict:
+    def _deserialize_metrics(self, data: dict) -> Union['RequestMetrics', None]:
+        """Deserialize metrics"""
+        if not data:
+            return None
+        try:
+            return RequestMetrics(
+                arrival_time=data.get('arrival_time', 0.0),
+                last_token_time=data.get('last_token_time', 0.0),
+                first_scheduled_time=data.get('first_scheduled_time'),
+                first_token_time=data.get('first_token_time'),
+                time_in_queue=data.get('time_in_queue'),
+                finished_time=data.get('finished_time')
+            )
+        except (KeyError, TypeError) as e:
+            print(f"Error deserializing metrics: {e}")
+            return None
+
+    def _serialize_lora_request(self, lora_request: Union['LoRARequest', None]) -> Union[dict, None]:
         """Serialize LoRARequest"""
         if not lora_request:
             return None
-        return {
-            'lora_name': lora_request.lora_name,
-            'lora_int_id': lora_request.lora_int_id,
-            'lora_path': lora_request.lora_path,
-            'lora_local_path': getattr(lora_request, 'lora_local_path', None),
-            'long_lora_max_len': getattr(lora_request, 'long_lora_max_len', None)
-        }
+        try:
+            return {
+                'lora_name': getattr(lora_request, 'lora_name', None),
+                'lora_int_id': getattr(lora_request, 'lora_int_id', None),
+                'lora_path': getattr(lora_request, 'lora_path', None),
+                'long_lora_max_len': getattr(lora_request, 'long_lora_max_len', None)
+            }
+        except AttributeError as e:
+            print(f"Error serializing lora_request: {e}")
+            return None
+
+    def _deserialize_lora_request(self, data: dict) -> Union['LoRARequest', None]:
+        """Deserialize LoRARequest"""
+        if not data:
+            return None
+        try:
+            kwargs = {
+                'lora_name': data.get('lora_name', ''),
+                'lora_int_id': data.get('lora_int_id', 0),
+                'lora_path': data.get('lora_path', ''),
+            }
+            if 'long_lora_max_len' in data:
+                kwargs['long_lora_max_len'] = data['long_lora_max_len']
+            return LoRARequest(**kwargs)
+        except (KeyError, TypeError) as e:
+            print(f"Error deserializing lora_request: {e}")
+            return None
 
 # TODO: Add serializers for other backends
 
