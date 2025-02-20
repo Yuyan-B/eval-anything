@@ -13,31 +13,30 @@ from eval_anything.utils.utils import UUIDGenerator
 from eval_anything.utils.register import TemplateRegistry as get_template
 from eval_anything.models.base_model import BaseModel
 from eval_anything.utils.utils import get_messages
+from transformers import AutoProcessor
 
 class vllmMM(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
-        self.infer_cfgs_sp, self.infer_cfgs_llm = infer_cfgs.SamplingParams, infer_cfgs.LLM
         self.model_cfgs = model_cfgs
-        self.sp_n = self.infer_cfgs_sp.n
-        self.sp_top_k = self.infer_cfgs_sp.top_k
-        self.sp_top_p = self.infer_cfgs_sp.top_p
-        self.sp_temperature = self.infer_cfgs_sp.temperature
-        self.sp_max_tokens = self.model_cfgs.model_max_length
-        self.sp_prompt_logprobs = self.infer_cfgs_sp.prompt_logprobs
-        self.sp_logprobs = self.infer_cfgs_sp.logprobs
+        self.infer_cfgs = infer_cfgs
+        self.sp_n = self.infer_cfgs.num_output
+        self.sp_top_k = self.infer_cfgs.top_k
+        self.sp_top_p = self.infer_cfgs.top_p
+        self.sp_temperature = self.infer_cfgs.temperature
+        self.sp_max_tokens = self.infer_cfgs.model_max_length
+        self.sp_prompt_logprobs = self.infer_cfgs.prompt_logprobs
+        self.sp_logprobs = self.infer_cfgs.logprobs
 
-        self.llm_tokenizer_mode = self.infer_cfgs_llm.tokenizer_mode
         self.llm_trust_remote_code = self.infer_cfgs_llm.trust_remote_code
-        self.llm_gpu_memory_utilization = self.infer_cfgs_llm.gpu_memory_utilization
-        self.llm_max_num_seqs = self.infer_cfgs_llm.max_num_seqs
-        tensor_ps = self.infer_cfgs_llm.tensor_parallel_size
+        self.llm_gpu_memory_utilization = self.infer_cfgs.gpu_memory_utilization
+        tensor_ps = self.infer_cfgs.num_gpu
         self.llm_tensor_parallel_size = tensor_ps if tensor_ps else cuda_device_count_stateless()
 
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
-        self.llm_trust_remote_code = self.model_cfgs.trust_remote_code
-        self.sp_max_tokens = self.model_cfgs.model_max_length
-
+        self.chat_template = self.model_cfgs.chat_template
+        self.template = get_template(self.chat_template)
+        
         self.task2details = {}
         self.detailed_filename = f'{self.model_id}_detailed'
         self.brief_filename = f'{self.model_id}_brief'
@@ -61,12 +60,12 @@ class vllmMM(BaseModel):
         self.model = LLM(
             model=self.model_name_or_path,
             tokenizer=self.model_name_or_path,
-            tokenizer_mode=self.llm_tokenizer_mode,
             trust_remote_code=self.llm_trust_remote_code,
             tensor_parallel_size=self.llm_tensor_parallel_size,
             gpu_memory_utilization=self.llm_gpu_memory_utilization,
-            max_num_seqs=self.llm_max_num_seqs,
         )
+        self.processor = AutoProcessor.from_pretrained(self.model_name_or_path)
+
 
     def generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]:
         """
@@ -79,19 +78,22 @@ class vllmMM(BaseModel):
         Internal method to handle generation logic using the model.
         Processes input list and returns inference outputs.
         """
-        if self.chat_template:
-            self.template = get_template(self.chat_template)
-            prompts = [
-                self.template.system_prompt
-                + self.template.user_prompt.format(input=input.text)
-                + self.template.assistant_prompt.format(output='')
-                for input in input_list
-            ]
-        else:
+        try:
             prompts = [
                 self.processor.apply_chat_template(get_messages(self.modality, input.text), add_generation_prompt=True)
                 for input in input_list
             ]
+        except Exception as e:
+            if self.chat_template:
+                prompts = [
+                    self.template.system_prompt
+                    + self.template.user_prompt.format(input=input.text)
+                    + self.template.assistant_prompt.format(output='')
+                    for input in input_list
+                ]
+            else:
+                prompts = [input.text for input in input_list]
+            
 
         if input_list and input_list[0].mm_data and input_list[0].mm_data[0].url:
             image_files = [input.mm_data[0].url for input in input_list]
