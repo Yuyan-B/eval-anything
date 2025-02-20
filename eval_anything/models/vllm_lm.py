@@ -23,11 +23,9 @@ class vllmLM(BaseModel):
         self.sp_prompt_logprobs = self.infer_cfgs.prompt_logprobs
         self.sp_logprobs = self.infer_cfgs.logprobs
 
-        self.llm_tokenizer_mode = self.infer_cfgs.tokenizer_mode
         self.llm_trust_remote_code = self.infer_cfgs.trust_remote_code
-        self.llm_gpu_memory_utilization = self.infer_cfgs.gpu_memory_utilization
-        self.llm_max_num_seqs = self.infer_cfgs.max_num_seqs
-        tensor_ps = self.infer_cfgs.tensor_parallel_size
+        self.llm_gpu_memory_utilization = self.infer_cfgs.gpu_utilization
+        tensor_ps = self.infer_cfgs.num_gpu
         self.llm_tensor_parallel_size = tensor_ps if tensor_ps else cuda_device_count_stateless()
 
         self.model_id = self.model_cfgs.model_id
@@ -57,11 +55,9 @@ class vllmLM(BaseModel):
         self.model = LLM(
             model=self.model_name_or_path,
             tokenizer=self.model_name_or_path,
-            tokenizer_mode=self.llm_tokenizer_mode,
             trust_remote_code=self.llm_trust_remote_code,
             tensor_parallel_size=self.llm_tensor_parallel_size,
             gpu_memory_utilization=self.llm_gpu_memory_utilization,
-            max_num_seqs=self.llm_max_num_seqs,
         )
 
     def generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]:
