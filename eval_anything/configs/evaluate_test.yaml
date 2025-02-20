@@ -61,7 +61,7 @@
     tokenizer_mode: "auto"
     # GPU Memory Utilization
     gpu_memory_utilization: 0.8
-      # Max Num Seqs
+    # Max Num Seqs
     max_num_seqs: 1024
     # Tensor Parallel Size
     tensor_parallel_size: 4
