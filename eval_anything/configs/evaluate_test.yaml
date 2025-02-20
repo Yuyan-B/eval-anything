@@ -45,8 +45,8 @@
     model_max_length: 2048
     # The max new tokens
     max_new_tokens: 512
-    # N
-    n: 1
+    # The number of Output
+    num_output: 1
     # Top-K
     top_k: 50
     # Top-P

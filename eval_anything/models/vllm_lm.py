@@ -15,7 +15,7 @@ class vllmLM(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
         self.model_cfgs = model_cfgs
         self.infer_cfgs = infer_cfgs
-        self.sp_n = self.infer_cfgs.n
+        self.sp_n = self.infer_cfgs.num_output
         self.sp_top_k = self.infer_cfgs.top_k
         self.sp_top_p = self.infer_cfgs.top_p
         self.sp_temperature = self.infer_cfgs.temperature
