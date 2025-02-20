@@ -209,3 +209,21 @@ def pair_data_via_uuid(inputs: list[InferenceInput], outputs: list[InferenceOutp
         if output.uuid in uuid_dict:
             results.append((uuid_dict[output.uuid], output))
     return results
+
+def get_messages(modality, prompt):
+    messages = {
+        "t2t": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt},
+        ],
+        "ti2t": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image"},
+                ],
+            }
+        ],
+    }
+    return messages.get(modality, [])

@@ -173,16 +173,29 @@ class InferenceOutput:
             raw_output=vllm_output if store_raw else None,
         )
 
+    @classmethod
+    def from_hf_output(
+        cls, task, uuid, response, hf_output: torch.Tensor, store_raw: bool = False
+    ):
+        return cls(
+            engine='huggingface',
+            task=task,
+            uuid=uuid,
+            response=response,
+            response_token_ids=hf_output.tolist(),
+            raw_output=hf_output if store_raw else None,
+        )
+
     # TODO
     # @classmethod
     # def from_data(cls, data: Dict, store_raw: bool = False):
-    #     return cls(
-    #         engine='dict',
-    #         question_id=data.get('question_id'),
-    #         prompt=data.get('prompt'),
-    #         response=data.get('response'),
-    #         raw_output=data if store_raw else None,
-    #     )
+    # return cls(
+    #     engine='dict',
+    #     question_id=data.get('question_id'),
+    #     prompt=data.get('prompt'),
+    #     response=data.get('response'),
+    #     raw_output=data if store_raw else None,
+    # )
 
     # @classmethod
     # def from_dict(cls, data: Dict, store_raw: bool = False):
