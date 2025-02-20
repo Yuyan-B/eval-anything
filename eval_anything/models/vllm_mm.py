@@ -2,6 +2,7 @@
 import json
 import os
 import re
+from PIL import Image
 from typing import Any, Dict, List
 
 from vllm import LLM, SamplingParams
@@ -9,7 +10,9 @@ from vllm.utils import cuda_device_count_stateless
 
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.utils import UUIDGenerator
+from eval_anything.utils.register import TemplateRegistry as get_template
 from eval_anything.models.base_model import BaseModel
+from eval_anything.utils.utils import get_messages
 
 class vllmMM(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
@@ -76,7 +79,43 @@ class vllmMM(BaseModel):
         Internal method to handle generation logic using the model.
         Processes input list and returns inference outputs.
         """
-        # TODO: Implement Pre-processing
+        if self.chat_template:
+            self.template = get_template(self.chat_template)
+            prompts = [
+                self.template.system_prompt
+                + self.template.user_prompt.format(input=input.text)
+                + self.template.assistant_prompt.format(output='')
+                for input in input_list
+            ]
+        else:
+            prompts = [
+                self.processor.apply_chat_template(get_messages(self.modality, input.text), add_generation_prompt=True)
+                for input in input_list
+            ]
+
+        if input_list and input_list[0].mm_data and input_list[0].mm_data[0].url:
+            image_files = [input.mm_data[0].url for input in input_list]
+            self.modality = input_list[0].mm_data[0].modality
+        elif input_list and input_list[0].mm_data and input_list[0].mm_data[0].file:
+            image_files = [input.mm_data[0].file for input in input_list]
+            self.modality = input_list[0].mm_data[0].modality
+        else:
+            raise ValueError("Each input item must have either 'url' or 'file'.")
+        
+        vllm_inputs = []
+        for prompt, image_file in zip(prompts, image_files):
+            if isinstance(image_file, Image.Image):
+                image = image_file
+            elif isinstance(image_file, str):
+                image = Image.open(image_file).convert("RGB")
+            else:
+                raise ValueError("image_file is neither a PIL Image nor a string.")
+            
+            vllm_inputs.append({
+                "prompt": prompt,
+                "multi_modal_data": {"image": image},
+            })
+            
         outputs = self.model.generate(
             prompts=[{
                 "prompt": input.text,  

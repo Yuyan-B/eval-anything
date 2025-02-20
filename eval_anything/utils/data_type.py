@@ -65,8 +65,6 @@ class InferenceInput:
     '''
     Args:
         text: The text to be completed.
-        multi_modal_data: The multimodal data for vllm backend.
-        mm_processor_kwargs: The multimodal processor kwargs for vllm backend.
         url: The url of the image to be completed.
         file: The image to be completed.
         modality: The modality of the image to be completed.
@@ -74,15 +72,11 @@ class InferenceInput:
 
     text: str
     mm_data: MultiModalData
-    multi_modal_data: dict
-    mm_processor_kwargs: dict
 
     def __init__(
         self,
         task: str,
         text: str,
-        multi_modal_data: dict | None = None,
-        mm_processor_kwargs: dict | None = None,
         urls: List[str] | str | None = None,
         data_files = None,
         ref_answer: str | None = None,
