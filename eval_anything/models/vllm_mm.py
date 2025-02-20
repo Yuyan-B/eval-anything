@@ -11,23 +11,23 @@ from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.utils import UUIDGenerator
 from eval_anything.models.base_model import BaseModel
 
-class vllmLM(BaseModel):
-    def __init__(self, model_cfgs: Dict[str, Any], vllm_cfgs, **kwargs):
-        self.vllm_cfgs_sp, self.vllm_cfgs_llm = vllm_cfgs.SamplingParams, vllm_cfgs.LLM
+class vllmMM(BaseModel):
+    def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
+        self.infer_cfgs_sp, self.infer_cfgs_llm = infer_cfgs.SamplingParams, infer_cfgs.LLM
         self.model_cfgs = model_cfgs
-        self.sp_n = self.vllm_cfgs_sp.n
-        self.sp_top_k = self.vllm_cfgs_sp.top_k
-        self.sp_top_p = self.vllm_cfgs_sp.top_p
-        self.sp_temperature = self.vllm_cfgs_sp.temperature
+        self.sp_n = self.infer_cfgs_sp.n
+        self.sp_top_k = self.infer_cfgs_sp.top_k
+        self.sp_top_p = self.infer_cfgs_sp.top_p
+        self.sp_temperature = self.infer_cfgs_sp.temperature
         self.sp_max_tokens = self.model_cfgs.model_max_length
-        self.sp_prompt_logprobs = self.vllm_cfgs_sp.prompt_logprobs
-        self.sp_logprobs = self.vllm_cfgs_sp.logprobs
+        self.sp_prompt_logprobs = self.infer_cfgs_sp.prompt_logprobs
+        self.sp_logprobs = self.infer_cfgs_sp.logprobs
 
-        self.llm_tokenizer_mode = self.vllm_cfgs_llm.tokenizer_mode
-        self.llm_trust_remote_code = self.vllm_cfgs_llm.trust_remote_code
-        self.llm_gpu_memory_utilization = self.vllm_cfgs_llm.gpu_memory_utilization
-        self.llm_max_num_seqs = self.vllm_cfgs_llm.max_num_seqs
-        tensor_ps = self.vllm_cfgs_llm.tensor_parallel_size
+        self.llm_tokenizer_mode = self.infer_cfgs_llm.tokenizer_mode
+        self.llm_trust_remote_code = self.infer_cfgs_llm.trust_remote_code
+        self.llm_gpu_memory_utilization = self.infer_cfgs_llm.gpu_memory_utilization
+        self.llm_max_num_seqs = self.infer_cfgs_llm.max_num_seqs
+        tensor_ps = self.infer_cfgs_llm.tensor_parallel_size
         self.llm_tensor_parallel_size = tensor_ps if tensor_ps else cuda_device_count_stateless()
 
         self.model_id = self.model_cfgs.model_id
@@ -76,6 +76,7 @@ class vllmLM(BaseModel):
         Internal method to handle generation logic using the model.
         Processes input list and returns inference outputs.
         """
+        # TODO: Implement Pre-processing
         outputs = self.model.generate(
             prompts=[{
                 "prompt": input.text,  
