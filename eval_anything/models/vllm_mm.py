@@ -113,15 +113,11 @@ class vllmMM(BaseModel):
             
             vllm_inputs.append({
                 "prompt": prompt,
-                "multi_modal_data": {"image": image},
+                "multi_modal_data": {self.modality: image},
             })
             
         outputs = self.model.generate(
-            prompts=[{
-                "prompt": input.text,  
-                "multi_modal_data": input.multi_modal_data,
-                "mm_processor_kwargs": input.mm_processor_kwargs,   
-            } for input in input_list], sampling_params=self.samplingparams
+            prompts=vllm_inputs, sampling_params=self.samplingparams
         )
         inference_outputs = [
             InferenceOutput.from_vllm_output(task=input.task, uuid=input.uuid, vllm_output=output, store_raw=True)
