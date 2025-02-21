@@ -2,6 +2,7 @@
 (t2t)支持transformers+accelerate推理
 """
 
+import gc
 import torch
 from typing import Any, Dict, List
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -65,14 +66,8 @@ class AccelerateModel(BaseModel):
             
         else:
             self.modality = 't2t'
-            input_ids = [
-                self.tokenizer.apply_chat_template(
-                    get_messages(self.modality, input.text),
-                    add_generation_prompt=True,
-                    return_tensors="pt"
-                )
-                for input in input_list
-            ]
+            prompts = [get_messages(self.modality, input) for input in input_list]
+            input_ids = self.tokenizer.apply_chat_template(prompts, padding=True, add_generation_prompt=True, return_tensors="pt")
 
             outputs = self.model.generate(
                 input_ids=input_ids.to(self.accelerator.device),
@@ -92,6 +87,11 @@ class AccelerateModel(BaseModel):
 
         return inference_outputs
 
-    # TODO
     def shutdown_model(self):
-        pass
+        del self.model
+        self.model = None
+        del self.accelerator
+        self.accelerator = None
+
+        gc.collect()
+        torch.cuda.empty_cache()

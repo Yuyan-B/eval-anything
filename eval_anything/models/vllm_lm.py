@@ -57,6 +57,9 @@ class vllmLM(BaseModel):
             gpu_memory_utilization=self.llm_gpu_memory_utilization,
         )
 
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+
     def generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]:
         return self._generation(inputs)
 
@@ -70,7 +73,17 @@ class vllmLM(BaseModel):
                 for input in input_list
             ]
         else:
-            prompts = [input.text for input in input_list]
+            self.modality = 't2t'
+            input_ids = self.tokenizer.apply_chat_template(
+                [get_messages(self.modality, input.text) for input in input_list],
+                padding=True,
+                add_generation_prompt=True,
+                return_tensors="pt"
+            )
+            prompts = [
+                self.tokenizer.decode(input_id, skip_special_tokens=True)
+                for input_id in input_ids
+            ]
 
         outputs = self.model.generate(
             prompts=prompts, sampling_params=self.samplingparams

@@ -2,6 +2,8 @@
 (multi-modal)支持transformers+accelerate推理
 """
 
+import gc
+import torch
 from typing import Any, Dict, List
 from transformers import (
     Qwen2VLForConditionalGeneration,
@@ -106,6 +108,11 @@ class AccelerateMultimodalModel(BaseModel):
 
         return inference_outputs
 
-    # TODO
     def shutdown_model(self):
-        pass
+        del self.model
+        self.model = None
+        del self.accelerator
+        self.accelerator = None
+
+        gc.collect()
+        torch.cuda.empty_cache()
