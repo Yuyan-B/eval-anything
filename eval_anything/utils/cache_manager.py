@@ -139,3 +139,7 @@ class CacheManager:
     def load(self, cache_key: str) -> List[InferenceOutput]:
         """Load outputs from cache"""
         return self.binary_cache.get(cache_key)
+
+    def clear(self) -> None:
+        """Clear all cached inference results"""
+        self.binary_cache.clear()
