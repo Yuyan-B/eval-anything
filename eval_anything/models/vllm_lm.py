@@ -33,9 +33,6 @@ class vllmLM(BaseModel):
         self.chat_template = self.model_cfgs.chat_template
         self.template = get_template(self.chat_template)
 
-        self.llm_trust_remote_code = self.infer_cfgs.trust_remote_code
-        self.sp_max_tokens = self.infer_cfgs.model_max_length
-
         self.task2details = {}
         self.detailed_filename = f'{self.model_id}_detailed'
         self.brief_filename = f'{self.model_id}_brief'
