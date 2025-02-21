@@ -2,6 +2,7 @@
 (t2t)支持transformers+accelerate推理
 """
 
+import gc
 import torch
 from typing import Any, Dict, List
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -92,6 +93,11 @@ class AccelerateModel(BaseModel):
 
         return inference_outputs
 
-    # TODO
     def shutdown_model(self):
-        pass
+        del model
+        model = None
+        del accelerator
+        accelerator = None
+
+        gc.collect()
+        torch.cuda.empty_cache()

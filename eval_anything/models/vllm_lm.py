@@ -2,6 +2,8 @@
 (t2t)支持vllm推理
 """
 
+import gc
+import torch
 from typing import Any, Dict, List
 from vllm import LLM, SamplingParams
 from vllm.utils import cuda_device_count_stateless
@@ -85,6 +87,9 @@ class vllmLM(BaseModel):
 
         return inference_outputs
     
-    # TODO
     def shutdown_model(self):
-        pass
+        del model
+        model = None
+
+        gc.collect()
+        torch.cuda.empty_cache()
