@@ -1,25 +1,76 @@
 """
 Cache management utilities for storing and retrieving inference results.
 
-Engine 解耦：
-- 不同的 engine 产生的 raw output 有不同的数据结构
-- 因此需要为每个 engine 提供一个专门的 serializer
+Use abstract cache keys instead of concrete file paths for `save` and `load` interfaces,
+so that the cache manager is independent of the file system. This is convenient for 
+switching to other storage backends in the future.
 
-MultiModality 
-- 不同的 modality 有不同的 serializer
-
-- 在 Serializer 和 Deserializer 中, 灵活组合不同engine和modality
-- CacheManager 只负责路径生成、存储和读取的逻辑
+Use pickle to automatically handle the serialization and deserialization of complex objects.
 """
 
-import os
-import json
 import hashlib
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any
 import logging
+import pickle
+from pathlib import Path
 
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
-from eval_anything.utils.serializers import SerializerRegistry
+
+class BinaryCache:
+    """Binary cache implementation with support for multiple tensor types"""
+    
+    def __init__(self, cache_dir: str = ".cache/eval_anything"):
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        
+    def _get_cache_path(self, key: str) -> Path:
+        """Get cache file path from key"""
+        hashed_key = hashlib.sha256(key.encode()).hexdigest()
+        return self.cache_dir / f"{hashed_key}.pkl"
+
+    def is_cached(self, key: str) -> bool:
+        """Check if the key is cached"""
+        cache_path = self._get_cache_path(key)
+        return cache_path.exists()
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Retrieve object from cache"""
+        cache_path = self._get_cache_path(key)
+        if not cache_path.exists():
+            logging.debug(f"Cache miss for key: {key}")
+            return None
+            
+        try:
+            with open(cache_path, 'rb') as f:
+                data = pickle.load(f)
+            logging.debug(f"Cache hit for key: {key}")
+            return data
+        except Exception as e:
+            logging.error(f"Failed to load cached object with key {key}. Error: {e}")
+            return None
+            
+    def put(self, key: str, value: Any) -> bool:
+        """Store object in cache"""
+        cache_path = self._get_cache_path(key)
+        try:
+            with open(cache_path, 'wb') as f:
+                pickle.dump(value, f)
+            logging.debug(f"Successfully cached object with key: {key}")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to cache object with key {key}. Error: {e}")
+            return False
+
+    def clear(self):
+        """Clear all cache files"""
+        count = 0
+        for cache_file in self.cache_dir.glob("*.pkl"):
+            try:
+                cache_file.unlink()
+                count += 1
+            except Exception as e:
+                logging.error(f"Failed to delete cache file {cache_file}. Error: {e}")
+        logging.debug(f"Cleared {count} cache files from {self.cache_dir}")
 
 class CacheManager:
     """Cache manager for inference results"""
@@ -29,15 +80,9 @@ class CacheManager:
         
         Args:
             cache_dir: Directory path for caching results
-            
-        Raises:
-            ValueError: If cache_dir is invalid or cannot be created
         """
         self.cache_dir = cache_dir
-        try:
-            os.makedirs(cache_dir, exist_ok=True)
-        except (OSError, PermissionError) as e:
-            raise ValueError(f"Failed to create or access cache directory {cache_dir}: {e}")
+        self.binary_cache = BinaryCache(cache_dir)
         
     def get_cache_path(self, model_cfg: dict, inputs: List[InferenceInput]) -> Tuple[str, bool]:
         """Get cache path and check if exists
@@ -47,7 +92,7 @@ class CacheManager:
             inputs: List of inference inputs
             
         Returns:
-            Tuple of (cache_path, exists_flag)
+            Tuple of (cache_key, exists_flag)
         """
         model_name = model_cfg.get('model_name', 'unknown_model')
         
@@ -77,70 +122,24 @@ class CacheManager:
         
         # Create hash from concatenated string
         inputs_hash = hashlib.md5(''.join(input_strings).encode()).hexdigest()
-        cache_path = os.path.join(self.cache_dir, model_name, f"{inputs_hash}.json")
+        cache_key = f"{model_name}_{inputs_hash}"
         
-        return cache_path, os.path.exists(cache_path)
+        return cache_key, self.binary_cache.is_cached(cache_key)
 
     def _normalize_value(self, value: any) -> str:
-        """Normalize values for consistent hashing
-        
-        Handles floating point numbers by rounding to 6 decimal places
-        """
+        """Normalize values for consistent hashing"""
         if isinstance(value, float):
             return f"{value:.6f}"
         return str(value)
 
-    def save(self, cache_path: str, outputs: List[InferenceOutput]) -> None:
-        """Save outputs to cache
-        
-        Args:
-            cache_path: Path to save cache file
-            outputs: List of inference outputs to cache
-            
-        Raises:
-            ValueError: If serializer is not found for an output's engine
-        """
-        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-        
-        cache_data = []
-        for output in outputs:
-            engine_serializer = SerializerRegistry.get(output.engine)
-            if engine_serializer is None:
-                raise ValueError(f"No serializer found for engine: {output.engine}")
-                
-            cache_entry = engine_serializer.serialize(output)
-            cache_data.append(cache_entry)
-            
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            json.dump(cache_data, f, ensure_ascii=False, indent=2)
+    def save(self, cache_key: str, outputs: List[InferenceOutput]) -> None:
+        """Save outputs to cache"""
+        self.binary_cache.put(cache_key, outputs)
 
-    def load(self, cache_path: str) -> List[InferenceOutput]:
-        """Load outputs from cache
-        
-        Args:
-            cache_path: Path to cache file
-            
-        Returns:
-            List of deserialized inference outputs
-            
-        Raises:
-            ValueError: If serializer is not found for cached output's engine
-        """
-        with open(cache_path, 'r', encoding='utf-8') as f:
-            cache_data = json.load(f)
-        
-        outputs = []
-        for data in cache_data:
-            engine = data.get('engine')
-            if not engine:
-                logging.warning(f"Skipping cache entry without engine field: {data}")
-                continue
-                
-            serializer = SerializerRegistry.get(engine)
-            if serializer is None:
-                raise ValueError(f"No serializer found for engine: {engine}")
-                
-            output = serializer.deserialize(data)
-            outputs.append(output)
-            
-        return outputs
+    def load(self, cache_key: str) -> List[InferenceOutput]:
+        """Load outputs from cache"""
+        return self.binary_cache.get(cache_key)
+
+    def clear(self) -> None:
+        """Clear all cached inference results"""
+        self.binary_cache.clear()
