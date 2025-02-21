@@ -1,7 +1,7 @@
+"""
+(multi-modal)支持vllm推理
+"""
 
-import json
-import os
-import re
 from PIL import Image
 from typing import Any, Dict, List
 
@@ -9,7 +9,6 @@ from vllm import LLM, SamplingParams
 from vllm.utils import cuda_device_count_stateless
 
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
-from eval_anything.utils.utils import UUIDGenerator
 from eval_anything.utils.register import TemplateRegistry as get_template
 from eval_anything.models.base_model import BaseModel
 from eval_anything.utils.utils import get_messages

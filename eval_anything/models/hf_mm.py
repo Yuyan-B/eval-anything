@@ -109,10 +109,10 @@ class AccelerateMultimodalModel(BaseModel):
         return inference_outputs
 
     def shutdown_model(self):
-        del model
-        model = None
-        del accelerator
-        accelerator = None
+        del self.model
+        self.model = None
+        del self.accelerator
+        self.accelerator = None
 
         gc.collect()
         torch.cuda.empty_cache()

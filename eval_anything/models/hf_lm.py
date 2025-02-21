@@ -66,14 +66,8 @@ class AccelerateModel(BaseModel):
             
         else:
             self.modality = 't2t'
-            input_ids = [
-                self.tokenizer.apply_chat_template(
-                    get_messages(self.modality, input.text),
-                    add_generation_prompt=True,
-                    return_tensors="pt"
-                )
-                for input in input_list
-            ]
+            prompts = [get_messages(self.modality, input) for input in input_list]
+            input_ids = self.tokenizer.apply_chat_template(prompts, padding=True, add_generation_prompt=True, return_tensors="pt")
 
             outputs = self.model.generate(
                 input_ids=input_ids.to(self.accelerator.device),
@@ -94,10 +88,10 @@ class AccelerateModel(BaseModel):
         return inference_outputs
 
     def shutdown_model(self):
-        del model
-        model = None
-        del accelerator
-        accelerator = None
+        del self.model
+        self.model = None
+        del self.accelerator
+        self.accelerator = None
 
         gc.collect()
         torch.cuda.empty_cache()
