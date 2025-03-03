@@ -11,18 +11,22 @@ t2t任务基类，不直接使用，而是继承后实现具体任务的逻辑
     - EvaluationResult类
 """
 
-from eval_anything.pipeline.base_task import BaseTask
+from eval_anything.pipeline.base_benchmark import BaseBenchmark
 from eval_anything.dataloader.t2t_dataloader import T2TDataLoader
 from eval_anything.utils.data_type import EvaluationResult
 import json
 import os
 from typing import Dict, List
 from eval_anything.utils.data_type import InferenceInput
-from eval_anything.utils.utils import pair_data_via_uuid
+from eval_anything.utils.utils import pair_data_via_uuid, UUIDGenerator
+from collections import namedtuple
+from eval_anything.utils.register import BenchmarkRegistry
+from eval_anything.utils.logger import EvalLogger
 
-class T2TTask(BaseTask):
-    def load_data(self, dataset_cfgs: dict):
-        dataset = T2TDataLoader(dataset_cfgs)
+@BenchmarkRegistry.register("text_to_text")
+class T2TBenchmark(BaseBenchmark):
+    def init_dataloader(self, eval_cfgs: namedtuple, benchmark_cfgs: namedtuple):
+        dataset = T2TDataLoader(eval_cfgs, benchmark_cfgs, self.logger)
         return dataset
 
     def save_benchmark_details(self, save_path: str, benchmark_name: str, inputs: Dict[str, List[InferenceInput]], results: Dict[str, List[EvaluationResult]]):
@@ -37,7 +41,14 @@ class T2TTask(BaseTask):
         for task, input_data in inputs.items():
             result_data = results[task]
             details = pair_data_via_uuid(input_data, result_data)
-
-            with open(os.path.join(output_dir, f"{task}.jsonl"), 'a') as f:
-                for detail in details:
-                    f.write(json.dumps(detail.to_dict(), ensure_ascii=False) + '\n')
+            save_details = []
+            for input, output in details:
+                save_details.append(
+                    {
+                        "input": input.to_dict(),
+                        "output": output.to_dict()
+                    }
+                )
+            with open(os.path.join(output_dir, f"details_{task}.jsonl"), 'a') as f:
+                for detail in save_details:
+                    f.write(json.dumps(detail, ensure_ascii=False) + '\n')

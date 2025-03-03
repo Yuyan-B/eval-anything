@@ -10,18 +10,23 @@ Use pickle to automatically handle the serialization and deserialization of comp
 
 import hashlib
 from typing import List, Tuple, Optional, Any
-import logging
 import pickle
+import os
 from pathlib import Path
+from collections import namedtuple
+import time
 
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
+from eval_anything.utils.logger import EvalLogger
+from eval_anything.utils.utils import get_project_root
 
 class BinaryCache:
     """Binary cache implementation with support for multiple tensor types"""
     
-    def __init__(self, cache_dir: str = ".cache/eval_anything"):
+    def __init__(self, cache_dir: str = ".cache/eval_anything", logger: EvalLogger = None):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.logger = logger
         
     def _get_cache_path(self, key: str) -> Path:
         """Get cache file path from key"""
@@ -37,16 +42,15 @@ class BinaryCache:
         """Retrieve object from cache"""
         cache_path = self._get_cache_path(key)
         if not cache_path.exists():
-            logging.debug(f"Cache miss for key: {key}")
+            # self.logger.log('info', f"Cache miss for key: {key}")
             return None
-            
         try:
             with open(cache_path, 'rb') as f:
                 data = pickle.load(f)
-            logging.debug(f"Cache hit for key: {key}")
+            self.logger.log('info', f"Get inference outputs from cache: {os.path.join(__file__, cache_path)}")
             return data
         except Exception as e:
-            logging.error(f"Failed to load cached object with key {key}. Error: {e}")
+            self.logger.log('error', f"Failed to load cached object with key {key}. Error: {e}")
             return None
             
     def put(self, key: str, value: Any) -> bool:
@@ -55,10 +59,10 @@ class BinaryCache:
         try:
             with open(cache_path, 'wb') as f:
                 pickle.dump(value, f)
-            logging.debug(f"Successfully cached object with key: {key}")
+            self.logger.log('info', f"Save inference outputs to cache: {os.path.join(__file__, cache_path)}")
             return True
         except Exception as e:
-            logging.error(f"Failed to cache object with key {key}. Error: {e}")
+            self.logger.log('error', f"Failed to cache object with key {key}. Error: {e}")
             return False
 
     def clear(self):
@@ -69,22 +73,22 @@ class BinaryCache:
                 cache_file.unlink()
                 count += 1
             except Exception as e:
-                logging.error(f"Failed to delete cache file {cache_file}. Error: {e}")
-        logging.debug(f"Cleared {count} cache files from {self.cache_dir}")
+                self.logger.log('error', f"Failed to delete cache file {os.path.join(__file__, cache_file)}. Error: {e}")
+        self.logger.log('info', f"Cleared {count} cache files from {self.cache_dir}")
 
 class CacheManager:
     """Cache manager for inference results"""
     
-    def __init__(self, cache_dir: str):
+    def __init__(self, cache_dir: str, logger: EvalLogger):
         """Initialize cache manager
         
         Args:
             cache_dir: Directory path for caching results
         """
         self.cache_dir = cache_dir
-        self.binary_cache = BinaryCache(cache_dir)
+        self.binary_cache = BinaryCache(cache_dir, logger)
         
-    def get_cache_path(self, model_cfg: dict, inputs: List[InferenceInput]) -> Tuple[str, bool]:
+    def get_cache_path(self, model_cfg: namedtuple, inputs: List[InferenceInput]) -> Tuple[str, bool]:
         """Get cache path and check if exists
         
         Args:
@@ -94,7 +98,7 @@ class CacheManager:
         Returns:
             Tuple of (cache_key, exists_flag)
         """
-        model_name = model_cfg.get('model_name', 'unknown_model')
+        model_name = getattr(model_cfg, 'model_id', time.strftime("%Y%m%d_%H%M%S", time.localtime()))
         
         # Create deterministic string representation of inputs
         input_strings = []

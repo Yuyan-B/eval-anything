@@ -1,6 +1,6 @@
 from typing import Any, Dict, List
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
-
+from eval_anything.utils.template import *
 
 MODEL_MAP = {
     "vllm_LM": "vllm_lm",

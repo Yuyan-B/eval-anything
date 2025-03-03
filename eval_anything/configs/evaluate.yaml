@@ -8,34 +8,26 @@
     task_uid: 111
     # benchmark name and task name, if the task list is empty, all tasks will be evaluated
     benchmarks: {
-      "gsm8k": ["main"], 
-      "agieval": []
+      "gsm8k": ["main"]
       }
     # Num shot
     n_shot: {
-      "gsm8k": 5,
-      "agieval": 0
+      "gsm8k": 5
       }
     # Chain of thought
     cot: {
-      "gsm8k": False,
-      "agieval": False
-      }
-    # Evaluation metrics
-    metrics: {
-      "gsm8k": ['accuracy'],
-      "agieval": []
+      "gsm8k": True
       }
   # The model configurations
   model_cfgs:
     # Pretrained model unique identity
-    model_id: null
+    model_id: Llama3.1-8B-Instruct
     # Pretrained model name or path
-    model_name_or_path: null
+    model_name_or_path: /aifs4su/yaodong/models/llama3.1/Meta-Llama-3.1-8B-Instruct
     # Model type ("LM" or "MM")
     model_type: "LM"
     # Chat template
-    chat_template: null
+    chat_template: Llama3
   infer_cfgs:
     # Inference backend
     infer_backend: "vllm"
@@ -62,9 +54,9 @@
     # Beam Search size
     num_beams: null
     # Number of GPUs
-    num_gpu: 8
+    num_gpu: 2
     # Available GPU IDs. If not specified, first num_gpu GPUs will be used.
-    gpu_ids: []
+    gpu_ids: [6,7]
     # GPU utilization
     gpu_utilization: 0.8
     

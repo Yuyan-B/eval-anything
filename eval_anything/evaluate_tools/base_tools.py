@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List
 
 class BaseTool(ABC):
     def __init__(self, **kwargs) -> None:
@@ -18,7 +19,7 @@ class BaseMetric(ABC):
             setattr(self, key, value)
             
     @abstractmethod
-    def calculate(self, **kwargs):
+    def calculate(self):
         pass
     
     def __call__(self, **kwargs):

@@ -8,6 +8,7 @@ import json
 import yaml
 from typing import Any
 from collections import namedtuple
+from pathlib import Path
 
 BENCHMARK_MODALITY_MAP = {
     'gsm8k': 'text_to_text',
@@ -25,21 +26,22 @@ class MultiChoicePromptBuilder():
         self.candidate_labels = candidate_labels
         self.cot_context = cot_context if cot_context else "Let's think step by step."
         self.few_shot_examples = few_shot_examples
-        self.cot = cot
+        self.enable_cot = cot
 
     def marge_QA(self, question: str, candidate_answers: list[str], ground_truth: str = "") -> str:
         prompt = f"{self.multi_choice_prompt}\n\n{question}\n"
         for label, answer in zip(self.candidate_labels, candidate_answers):
             prompt += f"({label}) {answer} "
         
-        answer = f"\nAnswer: {self.cot_context} {ground_truth}" if self.cot else f"\nAnswer: {ground_truth}"
+        answer = f"\nAnswer: {self.cot_context} {ground_truth}" if self.enable_cot else f"\nAnswer: {ground_truth}"
         return prompt + answer
 
     def build_prompt(self, question: str, candidate_answers: list[str]) -> str:
         context = ""
-        for few_shot in self.few_shot_examples:
-            context += self.marge_QA(few_shot['question'], few_shot['candidate_answers'], few_shot['ground_truth'])
-        context = context.join("\n") if context else ""
+        if self.few_shot_examples:
+            for few_shot in self.few_shot_examples:
+                context += self.marge_QA(few_shot['question'], few_shot['candidate_answers'], few_shot['ground_truth'])
+            context = context + "\n" if context else ""
 
         question = self.marge_QA(question, candidate_answers)
         prompt = f"{self.multi_choice_prompt}\n\n{context}{question}"
@@ -50,21 +52,22 @@ class DialoguePromptBuilder():
     def __init__(self, few_shot_examples: Optional[list[str]] = None, cot_context: Optional[str] = None, cot: bool = False):
         self.cot_context = cot_context if cot_context else "Let's think step by step."
         self.few_shot_examples = few_shot_examples
-        self.cot = cot
+        self.enable_cot = cot
 
     def marge_QA(self, question: str, ground_truth: str = "") -> str:
         prompt = f"{question}\n"
-        answer = f"\nAnswer: {self.cot_context} {ground_truth}" if self.cot else f"\nAnswer: {ground_truth}"
+        answer = f"\nAnswer: {self.cot_context} {ground_truth}" if self.enable_cot else f"\nAnswer: {ground_truth}"
         return prompt + answer
 
-    def build_prompt(self, question: str) -> str:
+    def build_prompt(self, input: str) -> str:
         context = ""
-        for few_shot in self.few_shot_examples:
-            context += self.marge_QA(few_shot['question'], few_shot['ground_truth'])
-        context = context.join("\n") if context else ""
+        if self.few_shot_examples:
+            for question, answer in zip(self.few_shot_examples['question'], self.few_shot_examples['answer']):
+                context += self.marge_QA(question, answer)
+            context = context + "\n" if context else ""
 
-        question = self.marge_QA(question)
-        prompt = f"{self.multi_choice_prompt}\n\n{context}{question}"
+        question = self.marge_QA(input)
+        prompt = f"{context}{question}"
         return prompt
 
 
@@ -81,11 +84,9 @@ class UUIDGenerator():
             modality_dict[mm_data.modality] = mm_data.url if mm_data.url else mm_data.file
 
         uuid_dict = {}
-        for modality, data in modality_dict.items():
-            uuid_dict[modality] = self.generate_uuid(data.text, modality)
-
-        data.uuid = uuid_dict
-        return data
+        for modality, content in modality_dict.items():
+            uuid_dict[modality] = self.generate_uuid(content, modality)
+        return uuid_dict
 
     # TODO 根据data和modality生成不同模态的uuid
     def generate_uuid(self, data: str, modality: str) -> str:
@@ -182,6 +183,14 @@ def dict_to_namedtuple(dic):
     cfgs = EnhancedNamedTuple(**{k: convert(v) for k, v in dic.items()})
     return cfgs
 
+def namedtuple_to_dict(obj):
+    if hasattr(obj, '_asdict'):
+        return {k: namedtuple_to_dict(v) for k, v in obj._asdict().items()}
+    elif isinstance(obj, list):
+        return [namedtuple_to_dict(i) for i in obj]
+    else:
+        return obj
+
 def parse_unknown_args(args):
     """
     Parse unknown arguments, support no-value parameters and return dict.
@@ -203,11 +212,17 @@ def parse_unknown_args(args):
     return unknown_args
 
 def pair_data_via_uuid(inputs: list[InferenceInput], outputs: list[InferenceOutput | EvaluationResult]):
-    uuid_dict = {item.uuid: item for item in inputs}
+    def get_uuid_key(item: InferenceInput):
+        uuid_key = ""
+        for modality, uuid in item.uuid.items():
+            uuid_key += f"{modality}:{uuid}"
+        return uuid_key
+    uuid_inputs = {get_uuid_key(item): item for item in inputs}
     results = []
     for output in outputs:
-        if output.uuid in uuid_dict:
-            results.append((uuid_dict[output.uuid], output))
+        uuid_key = get_uuid_key(output)
+        if uuid_key in uuid_inputs:
+            results.append((uuid_inputs[uuid_key], output))
     return results
 
 def get_messages(modality, prompt):
@@ -227,3 +242,11 @@ def get_messages(modality, prompt):
         ],
     }
     return messages.get(modality, [])
+
+
+def get_project_root():
+    current = Path(__file__).resolve()
+    for parent in current.parents:
+        if (parent / ".git").exists() or (parent / "pyproject.toml").exists():
+            return parent
+    return None

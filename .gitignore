@@ -425,3 +425,6 @@ tags
 local_scripts/
 
 *.gradio/
+
+cache/
+output/

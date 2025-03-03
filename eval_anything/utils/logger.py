@@ -20,17 +20,23 @@ class EvalLogger:
     def __init__(self, name, log_dir='.', level=logging.DEBUG):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
+        self.logger.propagate = False
         self.set_rich_console_handler()
         log_file = self.create_log_file(log_dir, name)
         self.set_file_handler(log_file)
         self.console = Console()
         self.log_dir = log_dir
 
+    # def set_rich_console_handler(self):
+    #     console_handler = RichHandler()
+    #     console_handler.setLevel(logging.DEBUG)
+    #     console_formatter = logging.Formatter('%(message)s')
+    #     console_handler.setFormatter(console_formatter)
+    #     self.logger.addHandler(console_handler)
+
     def set_rich_console_handler(self):
-        console_handler = RichHandler()
+        console_handler = RichHandler(rich_tracebacks=True, show_time=True)
         console_handler.setLevel(logging.DEBUG)
-        console_formatter = logging.Formatter('%(message)s')
-        console_handler.setFormatter(console_formatter)
         self.logger.addHandler(console_handler)
 
     def set_file_handler(self, log_file):
@@ -66,12 +72,12 @@ class EvalLogger:
         data: Dict[str, Dict[str, float]] = None,
         max_num_rows: int = None,
         to_csv: bool = False,
-        csv_file: Optional[str] = None,
+        csv_file_name: Optional[str] = None,
     ):
         table = Table(title=title)
 
-        if data and columns is None:
-            columns = list(data.keys())
+        # if data and columns is None:
+        #     columns = list(data.keys())
 
         if columns:
             for col in columns:
@@ -95,41 +101,38 @@ class EvalLogger:
             for metrics in data.values():
                 all_metrics.update(metrics.keys())
             all_metrics = sorted(all_metrics)  # 确保列顺序一致
-            
-            table.add_column("Task Name")
+            columns = [""]
+            rows = []
+            table.add_column("", style="bold")
+            # table.add_column("Task Name")
             for metric in all_metrics:
+                columns.append(metric)
                 table.add_column(metric)
             
-            for task, metrics in data.items():
-                row = [task] + [str(metrics.get(metric, "N/A")) for metric in all_metrics]
+            for row_label, subdict in data.items():
+                row = [row_label] + [str(subdict.get(col, "")) for col in all_metrics]
+                rows.append(row)
                 table.add_row(*row)
 
         self.console.print(table)
 
         if to_csv:
-            self.save_to_csv(columns, rows, data, csv_file)
+            self.save_to_csv(columns, rows, csv_file_name)
 
     def save_to_csv(
         self,
         columns: List[str],
         rows: List[List[Any]],
-        data: Dict[str, List[Any]],
-        csv_file: Optional[str],
+        csv_file_name: Optional[str],
     ):
-        if csv_file is None:
+        if csv_file_name is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]
             csv_file = os.path.join(self.log_dir, f'table_{timestamp}.csv')
+        else:
+            csv_file = os.path.join(self.log_dir, csv_file_name)
 
         with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(columns)
-
-            if rows:
-                for row in rows:
-                    writer.writerow(row)
-
-            if data:
-                num_rows = len(next(iter(data.values())))
-                for i in range(num_rows):
-                    row = [data[col][i] for col in columns]
-                    writer.writerow(row)
+            for row in rows:
+                writer.writerow(row)

@@ -17,7 +17,8 @@ from openai.types.chat.chat_completion import ChatCompletion
 from vllm.outputs import RequestOutput
 from vllm.sequence import PromptLogprobs
 from enum import Enum
-from eval_anything.evaluate_tools.t2t_tools import T2T_EVALUATE_TOOLS_MAP, T2T_JUDGER_MAP
+from eval_anything.evaluate_tools.t2t_tools import T2T_JUDGER_MAP
+import eval_anything.evaluate_tools.t2t_tools as T2T_TOOLS
 @dataclass
 class RewardModelOutput:
     """The output data of a reward model."""
@@ -64,6 +65,7 @@ class MultiModalData:
 class InferenceInput:
     '''
     Args:
+        task: The task name.
         text: The text to be completed.
         url: The url of the image to be completed.
         file: The image to be completed.
@@ -104,6 +106,15 @@ class InferenceInput:
 
     def __repr__(self):
         return f'InferenceInput(' f'text={self.text!r}),' f'mm_data={self.mm_data!r})'
+
+    def to_dict(self):
+        return {
+            "task": self.task,
+            "text": self.text,
+            "urls": [mm_data.url for mm_data in self.mm_data],
+            "ref_answer": self.ref_answer,
+            "uuid": self.uuid
+        }
 
 
 @dataclass
@@ -179,6 +190,14 @@ class InferenceOutput:
             response_token_ids=hf_output.tolist(),
             raw_output=hf_output if store_raw else None,
         )
+    
+    def to_dict(self):
+        return {
+            "task": self.task,
+            "uuid": self.uuid,
+            "response": self.response,
+            "engine": self.engine
+        }
 
     # TODO
     # @classmethod
@@ -235,24 +254,25 @@ class InferenceOutput:
 @dataclass
 class EvaluationResult:
     
-    def __init__(self, benchmark_name: str, inference_output: InferenceOutput, extracted_result: str | None, ground_truth: str | None, judge_methods: List[str] | None):
+    def __init__(self, benchmark_name: str, inference_output: InferenceOutput, extracted_result: dict[str, any] | None, ground_truth: str | None, uuid: str):
         self.benchmark_name = benchmark_name
         self.inference_output = inference_output
         self.extracted_result = extracted_result
         self.ground_truth = ground_truth
-        self.judge_methods = judge_methods
-        self.evaluation_result = self.judge(judge_methods)
-
-    def judge(self, judge_methods: List[str]) -> Dict[str, bool | float]:
-        # judge_methods = [getattr(str, T2T_JUDGER_MAP[judge_method]) for judge_method in judge_methods]
-        return {judge_method: getattr(str, T2T_JUDGER_MAP[judge_method])(self.extracted_result, self.ground_truth) for judge_method in judge_methods}
+        self.uuid = uuid
+        self.evaluation_results = {}
     
     def to_dict(self) -> dict:
         return {
-            'inference_output': self.inference_output,
+            'benchmark_name': self.benchmark_name,
+            'inference_output': self.inference_output.to_dict(),
             'extracted_result': self.extracted_result,
             'ground_truth': self.ground_truth,
+            'uuid': self.uuid
         }
+    
+    def update_evaluation_result(self, metric_name: str, metric_result: float):
+        self.evaluation_results[metric_name] = metric_result
 
 @dataclass
 class SingleInput:

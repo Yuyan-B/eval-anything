@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from eval_anything.evaluate_tools.base_tools import BaseTool
 from typing import Union, List, Iterable
 
-T2T_EVALUATE_TOOLS_MAP = {
+T2T_EXTRACTOR_MAP = {
     "regex_match_number": "RegexMatchNumber",
     "regex_match_text": "RegexMatch",
 }
@@ -31,10 +31,10 @@ class RegexMatch(BaseTool):
         def match_text(text):
             import re
             pattern = re.compile(self.pattern)
-            match = pattern.finditer(text)
+            match = list(pattern.finditer(text))
             if match:
-                if self.match_index:
-                    return match.group(self.match_index)
+                if self.match_index is not None:
+                    return match[self.match_index].group()
                 else:
                     return match.group()
             else:
@@ -42,9 +42,12 @@ class RegexMatch(BaseTool):
         matches = [match_text(item) for item in data]
         return matches
     
+    def __call__(self, data: Union[List, Iterable]) -> Union[List, None]:
+        return self.apply(data)
+    
 class RegexMatchNumber(RegexMatch):
     def __init__(self, additional_pattern: str = None, match_index: int = None):
-        pattern_match_number = r"^(?:[+-]?(?:\d+/\d+|(?:\d*\.\d+|\d+\.\d*)|\d+)|√(?:\([+-]?(?:\d+/\d+|(?:\d*\.\d+|\d+\.\d*)|\d+)\)|[+-]?(?:\d+/\d+|(?:\d*\.\d+|\d+\.\d*)|\d+)))$"
+        pattern_match_number = r"(?:[+-]?(?:\d+/\d+|(?:\d*\.\d+)|\d+)|√(?:\([+-]?(?:\d+/\d+|(?:\d*\.\d+)|\d+)\)|[+-]?(?:\d+/\d+|(?:\d*\.\d+)|\d+)))"
         self.pattern = additional_pattern.format(original_pattern=pattern_match_number) if additional_pattern else pattern_match_number
         self.match_index = match_index
         
@@ -54,3 +57,6 @@ class JudgeEqual(BaseTool):
     
     def apply(self, data_1, data_2) -> bool:
         return data_1 == data_2
+    
+    def __call__(self, data_1, data_2) -> bool:
+        return self.apply(data_1, data_2)

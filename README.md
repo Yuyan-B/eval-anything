@@ -27,15 +27,17 @@ eval-anything/
 │   │   ├── vllm_lm.py                  # 基于vllm的t2t推理
 │   │   └── vllm_mm.py                  # 基于vllm的多模态推理推理
 │   ├── pipeline/                       # 完整评测pipeline代码
-│   │   ├── base_task.py                # pipeline基类，继承使用
-│   │   ├── mm_generation_task.py       # 多模态生成任务pipeline
-│   │   ├── mm_understanding_task.py    # 多模态理解任务pipeline
-│   │   └── t2t_task.py                 # t2t任务pipeline
+│   │   ├── base_task.py                # pipeline基类，一般直接使用
+│   │   ├── base_benchmark.py           # benchmark基类，继承使用
+│   │   ├── mm_gen_benchmark.py         # 多模态生成任务benchmark
+│   │   ├── mm_und_benchmark.py         # 多模态理解任务benchmark
+│   │   └── t2t_benchmark.py            # t2t任务benchmark
 │   ├── evaluate_tools/                 # 评测过程中常见的工具包，例如计算各种指标、pattern匹配等
-│   │   ├── base_tools.py               # 评测指标和评测工具的基类 
+│   │   ├── base_tools.py               # 评测指标和评测工具的基类
 │   │   ├── metrics.py                  # 各种评测指标的计算 
 │   │   └── t2t_tools.py                # 评测工具
 │   └── utils/                          # 项目中使用到的工具包
+│       ├── cache_manager.py            # 推理过程的cache机制
 │       ├── data_type.py                # 定义数据基类，用于存储模型输入数据和评测结果数据
 │       ├── register.py                 # 注册器类
 │       ├── logger.py                   # 评测logger，用于输出评测结果以及写入本地log

@@ -7,9 +7,10 @@ from vllm import LLM, SamplingParams
 from vllm.utils import cuda_device_count_stateless
 from transformers import AutoTokenizer
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
-from eval_anything.utils.register import TemplateRegistry as get_template
+from eval_anything.utils.register import TemplateRegistry
 from eval_anything.models.base_model import BaseModel
 from eval_anything.utils.utils import get_messages
+import os
 
 class vllmLM(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
@@ -31,11 +32,13 @@ class vllmLM(BaseModel):
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
         self.chat_template = self.model_cfgs.chat_template
-        self.template = get_template(self.chat_template)
+        self.template = TemplateRegistry.get_template(self.chat_template) if self.chat_template else None
 
         self.task2details = {}
         self.detailed_filename = f'{self.model_id}_detailed'
         self.brief_filename = f'{self.model_id}_brief'
+        visible_devices = ','.join(str(i) for i in self.infer_cfgs.gpu_ids)
+        os.environ["CUDA_VISIBLE_DEVICES"] = visible_devices
         self.init_model()
 
     def init_model(self) -> None:
@@ -55,6 +58,7 @@ class vllmLM(BaseModel):
             trust_remote_code=self.llm_trust_remote_code,
             tensor_parallel_size=self.llm_tensor_parallel_size,
             gpu_memory_utilization=self.llm_gpu_memory_utilization,
+            distributed_executor_backend="ray"
         )
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
@@ -64,8 +68,7 @@ class vllmLM(BaseModel):
         return self._generation(inputs)
 
     def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
-        if self.chat_template:
-            self.template = get_template(self.chat_template)
+        if self.template:
             prompts = [
                 self.template.system_prompt
                 + self.template.user_prompt.format(input=input.text)

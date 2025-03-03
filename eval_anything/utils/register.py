@@ -9,6 +9,7 @@ class MetricRegistry:
     def register(cls, name: str):
         def decorator(metric_cls):
             cls._registry[name] = metric_cls
+            metric_cls._registered_name = name
             return metric_cls
         return decorator
 
@@ -25,6 +26,7 @@ class TemplateRegistry:
     def register(cls, name: str):
         def decorator(template_cls):
             cls._registry[name] = template_cls
+            template_cls.__name__ = name
             return template_cls
         return decorator
 
@@ -33,3 +35,20 @@ class TemplateRegistry:
         if name not in cls._registry:
             raise ValueError(f"Template '{name}' is not registered!")
         return cls._registry[name](*args, **kwargs)
+    
+class BenchmarkRegistry:
+    _registry = {}
+
+    @classmethod
+    def register(cls, name: str):
+        def decorator(benchmark_cls):
+            cls._registry[name] = benchmark_cls
+            benchmark_cls._registered_name = name
+            return benchmark_cls
+        return decorator
+    
+    @classmethod
+    def get_benchmark(cls, name: str):
+        if name not in cls._registry:
+            raise ValueError(f"Benchmark '{name}' is not registered!")
+        return cls._registry[name]
