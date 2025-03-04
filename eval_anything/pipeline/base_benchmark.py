@@ -164,7 +164,7 @@ class BaseBenchmark(ABC):
         """
         output_text = [item.response[0] for item in inference_outputs]
         extracted_results = {}
-        for answer_extractor in answer_extractors[2:]:
+        for answer_extractor in answer_extractors:
             extracted_results[answer_extractor.name] = getattr(T2T_TOOLS, T2T_EXTRACTOR_MAP[answer_extractor.function])(**(answer_extractor.args._asdict())).apply(output_text)
         
         evaluation_details = []

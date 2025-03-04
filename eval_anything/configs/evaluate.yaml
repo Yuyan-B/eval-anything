@@ -8,15 +8,18 @@
     task_uid: 111
     # benchmark name and task name, if the task list is empty, all tasks will be evaluated
     benchmarks: {
-      "gsm8k": ["main"]
+      #"gsm8k": ["main"],
+      "mmlu": ["abstract_algebra"]
       }
     # Num shot
     n_shot: {
-      "gsm8k": 5
+      #"gsm8k": 5,
+      "mmlu": 5
       }
     # Chain of thought
     cot: {
-      "gsm8k": True
+      #"gsm8k": True,
+      "mmlu": False
       }
   # The model configurations
   model_cfgs:

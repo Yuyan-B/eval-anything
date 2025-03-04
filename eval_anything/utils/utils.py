@@ -29,22 +29,28 @@ class MultiChoicePromptBuilder():
         self.enable_cot = cot
 
     def marge_QA(self, question: str, candidate_answers: list[str], ground_truth: str = "") -> str:
-        prompt = f"{self.multi_choice_prompt}\n\n{question}\n"
+        # Handle the label answer format difference
+        if ground_truth.isdigit():
+            ground_truth = chr(65 + int(ground_truth))
+        prompt = f"{question}\n"
         for label, answer in zip(self.candidate_labels, candidate_answers):
             prompt += f"({label}) {answer} "
         
         answer = f"\nAnswer: {self.cot_context} {ground_truth}" if self.enable_cot else f"\nAnswer: {ground_truth}"
-        return prompt + answer
+        return prompt + answer + "\n"
 
     def build_prompt(self, question: str, candidate_answers: list[str]) -> str:
-        context = ""
+        prompt = f"{self.multi_choice_prompt}\n\n"
+        
         if self.few_shot_examples:
-            for few_shot in self.few_shot_examples:
-                context += self.marge_QA(few_shot['question'], few_shot['candidate_answers'], few_shot['ground_truth'])
-            context = context + "\n" if context else ""
+            # Add few-shot examples
+            for q, c, a in zip(self.few_shot_examples['question'], 
+                             self.few_shot_examples['choices'],
+                             self.few_shot_examples['answer']):
+                prompt += self.marge_QA(q, c, str(a))
 
-        question = self.marge_QA(question, candidate_answers)
-        prompt = f"{self.multi_choice_prompt}\n\n{context}{question}"
+        # Add the current question
+        prompt += self.marge_QA(question, candidate_answers)
         return prompt
 
 
