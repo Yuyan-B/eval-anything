@@ -26,6 +26,7 @@ class BaseDataLoader:
     task_type_map = {
         'Dialogue': 'build_dialogue_prompt',
         'MultiChoice': 'build_multi_choice_prompt',
+        'CodeGeneration': 'build_codes_generation_prompt'
     }
 
     def __init__(self, eval_cfgs, bench_cfgs, logger):
@@ -59,8 +60,16 @@ class BaseDataLoader:
             else:
                 dataset = load_dataset(self.data_dir, task.name, split=self.bench_cfgs.dataset.split)
             self.few_shot_data = self.set_fewshot_dataset(task.name) if self.num_shot != 0 else None
+
+            # Build prompts
             prompt_builder = getattr(self, self.task_type_map[task.type])
             prompts[task.name] = prompt_builder(task, dataset)
+
+            # Save metadata if needed
+            if task.has_metadata:
+                for i, item in enumerate(prompts[task.name]):
+                    item.metadata = dataset[i]
+
         return prompts
 
     def set_fewshot_dataset(self, task: str):

@@ -90,6 +90,7 @@ class BaseBenchmark(ABC):
             if self.enable_cache:
                 cache_path, cache_exist = self.cache_manager.get_cache_path(
                     self.model_cfgs, 
+                    self.infer_cfgs,
                     input_data_batch
                 )
                 if cache_exist:

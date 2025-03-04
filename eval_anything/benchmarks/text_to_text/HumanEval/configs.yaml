@@ -1,0 +1,54 @@
+# ============================================
+# 评测配置：
+#   - 数据集hf路径
+#   - 数据集split
+#   - 数据集size
+#   - 数据集模态
+#   - 评测方式（multiple choice / generation / ...）
+#   - 评测指标（accuracy / ...）
+#   - 是否支持few_shot
+#   - 选项编号形式（ABCD或1234...），判断对错时的标识(true/false或者1/0...)
+# ============================================
+dataset:
+  name: HumanEval
+  path: openai/openai_humaneval
+  split: test
+  size: null
+  modality: text-to-text
+  fewshot_data_path: openai/openai_humaneval
+  fewshot_data_file: null
+  fewshot_data_split: null
+  cot_fewshot_data_path: benchmarks/cot_fewshot
+  cot_fewshot_data_file: null
+  cot_fewshot_data_split: null
+  max_shot: 5
+  default_task_list: ["openai_humaneval"]
+
+task:
+  - name: openai_humaneval
+    data_files: null
+    type: CodeGeneration
+    question_key: prompt
+    ground_truth_key: canonical_solution
+    has_metadata:  True
+    candidate_labels: null
+    avalable_evaluate_tools: ["extract_first_code_block", "extract_last_code_block"]
+answer_extractor:
+  - name: extract_first_code_block
+    function: regex_match_code
+    args:
+      match_index: 0
+  - name: extract_last_code_block
+    function: regex_match_code
+    args:
+      match_index: -1
+metrics:
+  - name: pass_rate
+    function: pass_rate
+    args:
+      null
+overall_metrics:
+  - name: null
+    function: null
+    args:
+      null
