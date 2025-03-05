@@ -105,31 +105,54 @@ class RegexMatchLetter(RegexMatch):
         return matches
 
 class RegexMatchCode(RegexMatch):
-    def __init__(self, additional_pattern: str = None, match_index: int = None):
+    def __init__(self, additional_pattern: str = None, match_index: int = None, language: str = "python"):
         # Pattern to match code blocks between ```python ``` or ``` ```
-        pattern_match_code = r"```(?:python)?\s*(.*?)\s*```"
+        pattern_match_code = r"```(?:{language})?\s*([\s\S]*?)\s*```"
         self.pattern = additional_pattern.format(original_pattern=pattern_match_code) if additional_pattern else pattern_match_code
         self.match_index = match_index
+        self.language = language
 
     def apply(self, data: Union[List, Iterable]) -> Union[List, None]:
         def match_text(text):
             import re
-            pattern = re.compile(self.pattern, re.DOTALL)  # Use DOTALL to match across newlines
-            matches = list(pattern.finditer(text))
-            if matches:
-                if self.match_index is not None:
-                    # Handle negative index (last match)
-                    if self.match_index < 0:
-                        self.match_index = len(matches) + self.match_index
-                    if 0 <= self.match_index < len(matches):
-                        return matches[self.match_index].group(1).strip()
-                    return None
-                else:
-                    return matches[0].group(1).strip()
-            return None
+            # Find all positions of ```language and ``` markers
+            language_pattern = r"```{}".format(self.language)
+            close_pattern = r"```"
+            language_positions = [m.start() for m in re.finditer(language_pattern, text)]
+            close_positions = [m.start() for m in re.finditer(close_pattern, text)]
+            
+            if not language_positions or not close_positions:
+                return ""
+            
+            # Match each ```language with its next ``` marker
+            code_blocks = []
+            for lang_start in language_positions:
+                # Find the next closing marker after this language marker
+                next_close = None
+                for close_pos in close_positions:
+                    if close_pos > lang_start:
+                        next_close = close_pos
+                        break
+                
+                if next_close is not None:
+                    block_content = text[lang_start:next_close + 3]  # Include the closing ```
+                    # Clean up the content
+                    content = re.sub(r'^```{}\s*'.format(self.language), '', block_content)
+                    content = re.sub(r'\s*```$', '', content)
+                    code_blocks.append(content)
+            
+            if not code_blocks:
+                return ""
+            
+            # Return the specific match based on index
+            if self.match_index is not None:
+                if self.match_index < 0:
+                    self.match_index = len(code_blocks) + self.match_index
+                if 0 <= self.match_index < len(code_blocks):
+                    return code_blocks[self.match_index]
+                return ""
+            else:
+                return code_blocks[0]  # Default to first match
             
         matches = [match_text(item) for item in data]
         return matches
-    
-
-

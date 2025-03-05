@@ -60,6 +60,8 @@ class MultiChoicePromptBuilder():
 
         # Add the current question
         prompt += self.marge_QA(question, candidate_answers)
+        if self.enable_cot:
+            prompt += f"\n{self.cot_context}"
         return prompt
 
 
@@ -86,30 +88,32 @@ class DialoguePromptBuilder():
         return prompt
 
 class CodesGenerationPromptBuilder():
-    def __init__(self, few_shot_examples: Optional[list[str]] = None, cot_context: Optional[str] = None, cot: bool = False):
+    def __init__(self, few_shot_examples: Optional[list[str]] = None, cot_context: Optional[str] = None, cot: bool = False, language: str = "python"):
         self.cot_context = cot_context if cot_context else "Let's think step by step."
         self.few_shot_examples = few_shot_examples
         self.enable_cot = cot
-        self.code_generation_prompt = 'The following are function description (with Canonical_solution).'
-
+        self.code_generation_prompt = 'The following are examples of function description (with Canonical_solution).'
+        self.language = language
+        
     def build_example_prompt(self, question: str, ground_truth: str, with_answer=True):
         answer = (
-            f'Canonical_solution: ```python\n{ground_truth}\n```'
+            f'Canonical_solution:\n ```{self.language}\n{ground_truth}\n```'
             if with_answer
             else ''
         )
-        return f"Function description: {question}\n{answer}"
+        return f"Function description:\n{question}\n{answer}"
        
     def build_prompt(self, question: str, ground_truth: str) -> str:
         prompt = f"{self.code_generation_prompt}\n\n"
         if self.few_shot_examples:
-            for question, ground_truth in zip(self.few_shot_examples['prompt'], self.few_shot_examples['canonical_solution']):
-                prompt += self.build_example_prompt(question, ground_truth)
+            for few_shot_question, few_shot_ground_truth in zip(self.few_shot_examples['prompt'], self.few_shot_examples['canonical_solution']):
+                prompt += self.build_example_prompt(few_shot_question, few_shot_ground_truth) + "\n"
+            prompt += "Now, please provide solution for the following function description:\n"
         
         prompt += self.build_example_prompt(question, ground_truth, with_answer=False)
+        prompt += f"\nPlease provide your solution in a code block using ```{self.language}\n...\n``` format."
         if self.enable_cot:
             prompt += f"\n{self.cot_context}"
-        prompt += "\nPlease provide your solution in a code block using ```python\n...\n``` format."
         return prompt
 
 

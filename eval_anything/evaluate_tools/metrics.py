@@ -7,7 +7,6 @@ from eval_anything.utils.data_type import EvaluationResult
 import eval_anything.evaluate_tools.t2t_tools as T2T_TOOLS
 from eval_anything.evaluate_tools.t2t_tools import T2T_JUDGER_MAP
 from eval_anything.utils.utils import check_correctness, estimate_pass_at_k
-from eval_anything.utils.logger import EvalLogger
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import Counter
 import tqdm
@@ -16,7 +15,6 @@ import os
 
 class MetricCalculator(BaseTool):
     def __init__(self, metrics_list: List[namedtuple], judge_method: str):
-        self.logger
         self.metrics = []
         self.metrics_args = []
         self.judge_method = judge_method
@@ -29,7 +27,9 @@ class MetricCalculator(BaseTool):
         results = {}
         for metric, args in zip(self.metrics, self.metrics_args):
             if args:
-                results[metric._registered_name] = metric(evaluation_results, self.judge_method, **args)
+                # Convert EnhancedNameTuple to dict
+                args_dict = args._asdict() if hasattr(args, '_asdict') else {}
+                results[metric._registered_name] = metric(evaluation_results, self.judge_method, **args_dict)
             else:
                 results[metric._registered_name] = metric(evaluation_results, self.judge_method)
         return results
@@ -188,6 +188,7 @@ class AverageAcrossTasks(BaseMetric):
 
 @MetricRegistry.register('pass_rate')
 class PassAtK(BaseMetric):
+    # TODO Support k>1 pass@k, need multiple rounds of inference
     def calculate(self, evaluation_results: List[EvaluationResult], judge_method: str, k: int = 1, n_workers: int = 4, timeout: float = 3.0, **kwargs) -> dict[str, float]:
         # Set tokenizer parallelism at the start
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -205,8 +206,7 @@ class PassAtK(BaseMetric):
                 completion_id = Counter()
                 n_samples = 0
 
-                print(f"Preparing Completions for {extractor}...")
-                for sample in tqdm.tqdm(evaluation_results):
+                for sample in evaluation_results:
                     task_id = sample.ground_truth.get("task_id", "")
                     completion = sample.extracted_result[extractor]
                     args = (sample.ground_truth, completion, timeout, completion_id[task_id])
@@ -217,7 +217,7 @@ class PassAtK(BaseMetric):
 
                 assert len(completion_id) == len(evaluation_results), "Some problems are not attempted."
 
-                print(f"Running test suites for {extractor}...")
+                self.logger.log('info', f"Running test suites for {extractor}...")
                 for future in tqdm.tqdm(as_completed(futures), total=len(futures)):
                     result = future.result()
                     results[result["task_id"]].append((result["completion_id"], result))

@@ -62,7 +62,8 @@ class T2TDataLoader(BaseDataLoader):
         few_shot_examples = self.few_shot_data[: self.num_shot] if self.num_shot else []
         prompt_builder = CodesGenerationPromptBuilder(
             few_shot_examples=few_shot_examples,
-            cot=self.enable_cot
+            cot=self.enable_cot,
+            language=task.language
         )
         prompts = []
         question_key = task.question_key

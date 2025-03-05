@@ -17,7 +17,7 @@ dataset:
   modality: text-to-text
   fewshot_data_path: openai/openai_humaneval
   fewshot_data_file: null
-  fewshot_data_split: null
+  fewshot_data_split: test
   cot_fewshot_data_path: benchmarks/cot_fewshot
   cot_fewshot_data_file: null
   cot_fewshot_data_split: null
@@ -33,6 +33,7 @@ task:
     has_metadata:  True
     candidate_labels: null
     avalable_evaluate_tools: ["extract_first_code_block", "extract_last_code_block"]
+    language: python
 answer_extractor:
   - name: extract_first_code_block
     function: regex_match_code
@@ -46,7 +47,7 @@ metrics:
   - name: pass_rate
     function: pass_rate
     args:
-      null
+      k: 1
 overall_metrics:
   - name: null
     function: null

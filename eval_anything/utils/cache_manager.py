@@ -18,7 +18,6 @@ import time
 
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.logger import EvalLogger
-from eval_anything.utils.utils import get_project_root
 
 class BinaryCache:
     """Binary cache implementation with support for multiple tensor types"""
@@ -96,10 +95,11 @@ class CacheManager:
         # Get all relevant inference parameters
         infer_params = []
         
-        for param in dir(infer_cfgs):
-            value = getattr(infer_cfgs, param)
+        # Get only the actual fields from the namedtuple
+        for field in infer_cfgs._fields:
+            value = getattr(infer_cfgs, field)
             if value is not None:
-                infer_params.append(f"{param}={value}")
+                infer_params.append(f"{field}={value}")
 
         # Append inference parameters to model name
         if infer_params:
