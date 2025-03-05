@@ -32,6 +32,7 @@ from eval_anything.utils.utils import (
 from eval_anything.utils.cache_manager import CacheManager
 from eval_anything.utils.register import BenchmarkRegistry
 import eval_anything.benchmarks
+import eval_anything.dataloader.format_mm_dataset
 
 
 

@@ -19,6 +19,8 @@ from vllm.sequence import PromptLogprobs
 from enum import Enum
 from eval_anything.evaluate_tools.t2t_tools import T2T_JUDGER_MAP
 import eval_anything.evaluate_tools.t2t_tools as T2T_TOOLS
+import numpy as np
+
 @dataclass
 class RewardModelOutput:
     """The output data of a reward model."""
@@ -59,7 +61,14 @@ class MultiModalData:
 
     # TODO 从self.file获取modality
     def get_modality(self):
-        pass
+        if isinstance(self.file, PIL.Image.Image):
+            return ModalityType.IMAGE
+        elif isinstance(self.file, List[PIL.Image.Image]):
+            return ModalityType.VIDEO
+        elif isinstance(self.file, np.ndarray):
+            return ModalityType.AUDIO
+        else:
+            raise ValueError(f"Unsupported file type: {type(self.file)}")
 
 @dataclass
 class InferenceInput:

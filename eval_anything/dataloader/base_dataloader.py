@@ -22,11 +22,12 @@ from eval_anything.utils.data_type import InferenceInput
 from eval_anything.utils.utils import get_project_root
 from typing import List, Dict
 
-class BaseDataLoader:
-    task_type_map = {
+TASK_TYPE_MAP = {
         'Dialogue': 'build_dialogue_prompt',
         'MultiChoice': 'build_multi_choice_prompt',
     }
+
+class BaseDataLoader:
 
     def __init__(self, eval_cfgs, bench_cfgs, logger):
         self.eval_cfgs, self.bench_cfgs = (
@@ -40,6 +41,7 @@ class BaseDataLoader:
         self.data_dir = self.bench_cfgs.dataset.path
         self.task_info = self.get_task_info()
         self.logger = logger
+        
     def get_task_info(self):
         if isinstance(self.bench_cfgs.task, list):
             return self.bench_cfgs.task
@@ -59,7 +61,7 @@ class BaseDataLoader:
             else:
                 dataset = load_dataset(self.data_dir, task.name, split=self.bench_cfgs.dataset.split)
             self.few_shot_data = self.set_fewshot_dataset(task.name) if self.num_shot != 0 else None
-            prompt_builder = getattr(self, self.task_type_map[task.type])
+            prompt_builder = getattr(self, TASK_TYPE_MAP[task.type])
             prompts[task.name] = prompt_builder(task, dataset)
         return prompts
 
@@ -90,10 +92,6 @@ class BaseDataLoader:
             except:
                 self.logger.log('error', f"Fewshot is not supported for task {self.bench_cfgs.dataset.name}: {task}")
                 raise
-
-    @abstractmethod
-    def get_task_dict(self) -> Dict[str, str]:
-        raise NotImplementedError
 
     @abstractmethod
     def build_multi_choice_prompt(self, task: str, data: list[any]):

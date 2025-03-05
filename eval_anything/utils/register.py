@@ -52,3 +52,20 @@ class BenchmarkRegistry:
         if name not in cls._registry:
             raise ValueError(f"Benchmark '{name}' is not registered!")
         return cls._registry[name]
+    
+class MMDatasetRegistry:
+    _registry = {}
+
+    @classmethod
+    def register(cls, name: str):
+        def decorator(mm_dataset_cls):
+            cls._registry[name] = mm_dataset_cls
+            mm_dataset_cls._registered_name = name
+            return mm_dataset_cls
+        return decorator
+    
+    @classmethod
+    def get_mm_dataset(cls, name: str):
+        if name not in cls._registry:
+            raise ValueError(f"Dataset '{name}' is not registered!")
+        return cls._registry[name]

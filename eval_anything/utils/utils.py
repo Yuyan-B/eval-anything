@@ -34,7 +34,7 @@ class MultiChoicePromptBuilder():
             prompt += f"({label}) {answer} "
         
         answer = f"\nAnswer: {self.cot_context} {ground_truth}" if self.enable_cot else f"\nAnswer: {ground_truth}"
-        return prompt + answer
+        return prompt + answer + "\n"
 
     def build_prompt(self, question: str, candidate_answers: list[str]) -> str:
         context = ""
@@ -250,3 +250,4 @@ def get_project_root():
         if (parent / ".git").exists() or (parent / "pyproject.toml").exists():
             return parent
     return None
+

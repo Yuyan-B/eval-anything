@@ -131,7 +131,6 @@ class BaseBenchmark(ABC):
 
         dataloader = self.init_dataloader(self.eval_cfgs, self.benchmark_cfgs)
         input_data = dataloader.load_dataset(task_list)    # Input_data: list[InferenceInput]
-        
         inference_outputs = self.batch_inference(self.model, input_data)
         ref_answers = {task: self.get_ref_answer(input_data[task], inference_outputs[task]) for task in task_list}
         evaluation_details = {}

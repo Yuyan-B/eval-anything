@@ -1,0 +1,55 @@
+# ============================================
+# 评测配置：
+#   - 数据集hf路径
+#   - 数据集split
+#   - 数据集size
+#   - 数据集模态
+#   - 评测方式（multiple choice / generation / ...）
+#   - 评测指标（accuracy / ...）
+#   - 是否支持few_shot
+#   - 选项编号形式（ABCD或1234...），判断对错时的标识(true/false或者1/0...)
+# ============================================
+dataset:
+  name: mmmu
+  path: MMMU/MMMU
+  split: test
+  size: 
+  modality: text-image-to-text
+  fewshot_data_path: MMMU/MMMU
+  fewshot_data_name: "{task_name}"
+  fewshot_data_split: dev
+  cot_fewshot_data_path: null
+  cot_fewshot_data_name: null
+  cot_fewshot_data_split: null
+  max_shot: 5
+  default_task_list: ["Accounting"]
+task: 
+  - name: Accounting
+    type: MultiChoice
+    data_files: null
+    question_key: question
+    answer_key: options
+    ground_truth_key: answer
+    candidate_labels: [A, B, C, D]
+    avalable_evaluate_tools: ["RegexMatchText"]
+answer_extractor:
+  - name: match_last_letter
+    function: regex_match_letter
+    args:
+      additional_pattern: "{original_pattern}"
+      match_index: -1   # Take the last match
+  - name: match_first_letter
+    function: regex_match_letter
+    args:
+      additional_pattern: "{original_pattern}"
+      match_index: 0
+metrics:
+  - name: accuracy
+    function: accuracy
+    args:
+overall_metrics:
+  - name: null
+    function: null
+    args:
+      null
+  

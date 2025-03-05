@@ -10,7 +10,6 @@ t2t任务基类，不直接使用，而是继承后实现具体任务的逻辑
 输出：
     - EvaluationResult类
 """
-
 from eval_anything.pipeline.base_benchmark import BaseBenchmark
 from eval_anything.dataloader.t2t_dataloader import T2TDataLoader
 from eval_anything.utils.data_type import EvaluationResult
