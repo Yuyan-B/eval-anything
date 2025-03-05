@@ -38,9 +38,9 @@ class MultiChoicePromptBuilder():
         self.enable_cot = cot
 
     def marge_QA(self, question: str, candidate_answers: list[str], ground_truth: str = "") -> str:
-        # Handle the label answer format difference
+        # Handle the ground_truth label mapping
         if ground_truth.isdigit():
-            ground_truth = chr(65 + int(ground_truth))
+            ground_truth = [self.candidate_labels[int(ground_truth)]]
         prompt = f"{question}\n"
         for label, answer in zip(self.candidate_labels, candidate_answers):
             prompt += f"({label}) {answer} "
