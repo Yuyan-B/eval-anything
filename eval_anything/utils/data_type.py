@@ -83,6 +83,7 @@ class InferenceInput:
 
     text: str
     mm_data: MultiModalData
+    metadata: dict = None
 
     def __init__(
         self,
@@ -91,12 +92,14 @@ class InferenceInput:
         urls: List[str] | str | None = None,
         data_files = None,
         ref_answer: str | None = None,
-        uuid: Dict[str, str] = None
+        uuid: Dict[str, str] = None,
+        metadata: dict = None
     ):
         self.task = task
         self.text = text
         self.uuid = uuid or {}
         self.ref_answer = ref_answer    # ground_truth
+        self.metadata = metadata or {}  # Store benchmark-specific data
 
         # FIXME: Decide data structure of urls
         if isinstance(urls, str):
@@ -122,7 +125,8 @@ class InferenceInput:
             "text": self.text,
             "urls": [mm_data.url for mm_data in self.mm_data],
             "ref_answer": self.ref_answer,
-            "uuid": self.uuid
+            "uuid": self.uuid,
+            "metadata": self.metadata
         }
 
 
@@ -205,7 +209,7 @@ class InferenceOutput:
             "task": self.task,
             "uuid": self.uuid,
             "response": self.response,
-            "engine": self.engine
+            "engine": self.engine,
         }
 
     # TODO

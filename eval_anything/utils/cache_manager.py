@@ -18,7 +18,6 @@ import time
 
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.logger import EvalLogger
-from eval_anything.utils.utils import get_project_root
 
 class BinaryCache:
     """Binary cache implementation with support for multiple tensor types"""
@@ -88,17 +87,23 @@ class CacheManager:
         self.cache_dir = cache_dir
         self.binary_cache = BinaryCache(cache_dir, logger)
         
-    def get_cache_path(self, model_cfg: namedtuple, inputs: List[InferenceInput]) -> Tuple[str, bool]:
-        """Get cache path and check if exists
-        
-        Args:
-            model_cfg: Model configuration dictionary
-            inputs: List of inference inputs
-            
-        Returns:
-            Tuple of (cache_key, exists_flag)
-        """
+    def get_cache_path(self, model_cfg: namedtuple, infer_cfgs: namedtuple, inputs: List[InferenceInput]) -> Tuple[str, bool]:
+        """Get cache path and check if exists"""
+        # Get base model name
         model_name = getattr(model_cfg, 'model_id', time.strftime("%Y%m%d_%H%M%S", time.localtime()))
+        
+        # Get all relevant inference parameters
+        infer_params = []
+        
+        # Get only the actual fields from the namedtuple
+        for field in infer_cfgs._fields:
+            value = getattr(infer_cfgs, field)
+            if value is not None:
+                infer_params.append(f"{field}={value}")
+
+        # Append inference parameters to model name
+        if infer_params:
+            model_name = f"{model_name}_{'_'.join(infer_params)}"
         
         # Create deterministic string representation of inputs
         input_strings = []
