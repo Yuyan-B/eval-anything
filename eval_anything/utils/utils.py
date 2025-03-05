@@ -31,7 +31,7 @@ BENCHMARK_MODALITY_MAP = {
 
 class MultiChoicePromptBuilder():
     def __init__(self, candidate_labels: list[str], multi_choice_prompt: Optional[str] = None, cot_context: Optional[str] = None, few_shot_examples: Optional[list[str]] = None, cot: bool = False):
-        self.multi_choice_prompt = multi_choice_prompt if multi_choice_prompt else "The following are multiple choice questions (with answers)."
+        self.multi_choice_prompt = multi_choice_prompt if multi_choice_prompt else "Now please answer the following multiple choice question."
         self.candidate_labels = candidate_labels
         self.cot_context = cot_context if cot_context else "Let's think step by step."
         self.few_shot_examples = few_shot_examples
@@ -44,19 +44,26 @@ class MultiChoicePromptBuilder():
         prompt = f"{question}\n"
         for label, answer in zip(self.candidate_labels, candidate_answers):
             prompt += f"({label}) {answer} "
-        
-        answer = f"\nAnswer: {self.cot_context} {ground_truth}" if self.enable_cot else f"\nAnswer: {ground_truth}"
+
+        if ground_truth:
+            answer = f"\nAnswer: ({ground_truth})"
+        else:
+            answer = ""
+
         return prompt + answer + "\n"
 
     def build_prompt(self, question: str, candidate_answers: list[str]) -> str:
-        prompt = f"{self.multi_choice_prompt}\n\n"
-        
+        prompt = ""
+
         if self.few_shot_examples:
             # Add few-shot examples
+            prompt += "The following are multiple choice questions with answers.\n"
             for q, c, a in zip(self.few_shot_examples['question'], 
                              self.few_shot_examples['choices'],
                              self.few_shot_examples['answer']):
                 prompt += self.marge_QA(q, c, str(a))
+
+        prompt += f"{self.multi_choice_prompt}\n\n"
 
         # Add the current question
         prompt += self.marge_QA(question, candidate_answers)
