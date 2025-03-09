@@ -89,14 +89,16 @@ class InferenceInput:
         self,
         task: str,
         text: str,
+        text_id: str = None,
         urls: List[str] | str | None = None,
         data_files = None,
-        ref_answer: str | None = None,
+        ref_answer: str | dict[str, list] | List[any] | int | None = None,
         uuid: Dict[str, str] = None,
         metadata: dict = None
     ):
         self.task = task
         self.text = text
+        self.text_id = text_id
         self.uuid = uuid or {}
         self.ref_answer = ref_answer    # ground_truth
         self.metadata = metadata or {}  # Store benchmark-specific data
@@ -150,7 +152,7 @@ class InferenceOutput:
     prompt: str
     response: str
     response_token_ids: Optional[List[int]]
-    response_logprobs: Optional[PromptLogprobs]
+    response_logprobs: Optional[PromptLogprobs] | dict[str, list]
     raw_output: Optional[Union[RequestOutput, None]]
     mm_input_data: List[MultiModalData]
     mm_output_data: List[MultiModalData]
@@ -163,15 +165,17 @@ class InferenceOutput:
         self,
         task: str,
         uuid: Dict[str, str],   # {modality: uuid}
+        prompt: str,
         response: str,
         engine: str = 'hand',
         response_token_ids: Optional[List[int]] = None,
-        response_logprobs: Optional[PromptLogprobs] = None,
+        response_logprobs: Optional[PromptLogprobs] | dict[str, list] = None,
         raw_output: Optional[Union[RequestOutput, None]] = None,
     ):
         self.engine = engine
         self.task = task
         self.uuid = uuid
+        self.prompt = prompt
         self.response = response
         self.response_token_ids = response_token_ids
         self.response_logprobs = response_logprobs
@@ -179,12 +183,13 @@ class InferenceOutput:
 
     @classmethod
     def from_vllm_output(
-        cls, task, uuid, vllm_output: RequestOutput, store_raw: bool = False
+        cls, task, uuid, prompt, vllm_output: RequestOutput, store_raw: bool = False
     ):
         return cls(
             engine='vllm',
             task=task,
             uuid=uuid,
+            prompt=prompt,
             response=[output.text for output in vllm_output.outputs],
             response_token_ids=[output.token_ids for output in vllm_output.outputs],
             response_logprobs=[output.logprobs for output in vllm_output.outputs],
@@ -251,14 +256,25 @@ class InferenceOutput:
     #         raw_output=deepspeed_output if store_raw else None,
     #     )
 
+    # def __repr__(self):
+    #     return (
+    #         f'InferenceOutput('
+    #         f'engine={self.engine!r}, '
+    #         f'prompt={self.prompt!r}, '
+    #         f'question_id={self.question_id!r}, '
+    #         f'prompt_token_ids={self.prompt_token_ids!r}, '
+    #         f'prompt_logprobs={self.prompt_logprobs!r}, '
+    #         f'response={self.response!r}, '
+    #         f'response_token_ids={self.response_token_ids!r}, '
+    #         f'response_logprobs={self.response_logprobs!r})'
+    #     )
+    
     def __repr__(self):
         return (
             f'InferenceOutput('
             f'engine={self.engine!r}, '
+            f'uuid={self.uuid!r}, '
             f'prompt={self.prompt!r}, '
-            f'question_id={self.question_id!r}, '
-            f'prompt_token_ids={self.prompt_token_ids!r}, '
-            f'prompt_logprobs={self.prompt_logprobs!r}, '
             f'response={self.response!r}, '
             f'response_token_ids={self.response_token_ids!r}, '
             f'response_logprobs={self.response_logprobs!r})'
@@ -267,7 +283,7 @@ class InferenceOutput:
 @dataclass
 class EvaluationResult:
     
-    def __init__(self, benchmark_name: str, inference_output: InferenceOutput, extracted_result: dict[str, any] | None, ground_truth: str | None, uuid: str):
+    def __init__(self, benchmark_name: str, inference_output: InferenceOutput, extracted_result: dict[str, any] | None, ground_truth: str | dict[str, list] | None, uuid: str):
         self.benchmark_name = benchmark_name
         self.inference_output = inference_output
         self.extracted_result = extracted_result

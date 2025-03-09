@@ -8,40 +8,37 @@
     task_uid: 111
     # benchmark name and task name, if the task list is empty, all tasks will be evaluated
     benchmarks: {
-<<<<<<< HEAD
-      "mmmu": ["Accounting"]
-      }
-    # Num shot
-    n_shot: {
-      "mmmu": 5
-      }
-    # Chain of thought
-    cot: {
-      "mmmu": False
-=======
-      #"gsm8k": ["main"],
+      "gsm8k": ["main"],
       "mmlu": ["global_facts"],
-      "HumanEval": ["openai_humaneval"]
+      "HumanEval": ["openai_humaneval"],
+      "AGIEval": ['aqua-rat', 'gaokao-biology', 'gaokao-chemistry', 'gaokao-chinese', 'gaokao-english', 'gaokao-geography', 'gaokao-history', 'gaokao-mathcloze', 'gaokao-mathqa', 'gaokao-physics', 'jec-qa-ca', 'jec-qa-kd', 'logiqa-en', 'logiqa-zh', 'lsat-ar', 'lsat-lr', 'lsat-rc', 'math', 'sat-en', 'sat-en-without-passage', 'sat-math'],
+      "TruthfulQA": ["generation"],
+      "mmmu": ["Accounting"],
       }
     # Num shot
     n_shot: {
-      #"gsm8k": 5,
+      "gsm8k": 5,
       "mmlu": 0,
-      "HumanEval": 0
+      "HumanEval": 0,
+      "AGIEval": 5,
+      "TruthfulQA": 6,
+      "mmmu": 5,
       }
     # Chain of thought
     cot: {
-      #"gsm8k": True,
+      "gsm8k": True,
       "mmlu": True,
-      "HumanEval": False
->>>>>>> refs/remotes/origin/main
+      "HumanEval": False,
+      "AGIEval": False,
+      "TruthfulQA": False,
+      "mmmu": False,
       }
   # The model configurations
   model_cfgs:
     # Pretrained model unique identity
     model_id: Llama3.1-8B-Instruct
     # Pretrained model name or path
-    model_name_or_path: /aifs4su/yaodong/models/llama3.1/Meta-Llama-3.1-8B-Instruct
+    model_name_or_path: meta-llama/Llama-3.1-8B-Instruct
     # Model type ("LM" or "MM")
     model_type: "LM"
     # Chat template
@@ -72,13 +69,9 @@
     # Beam Search size
     num_beams: null
     # Number of GPUs
-    num_gpu: 8
+    num_gpu: 2
     # Available GPU IDs. If not specified, first num_gpu GPUs will be used.
-<<<<<<< HEAD
     gpu_ids: [0,1]
-=======
-    gpu_ids: [0,1,2,3,4,5,6,7]
->>>>>>> refs/remotes/origin/main
     # GPU utilization
     gpu_utilization: 0.8
     
