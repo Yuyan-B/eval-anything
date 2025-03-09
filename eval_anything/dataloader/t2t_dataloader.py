@@ -22,7 +22,7 @@ from eval_anything.dataloader.base_dataloader import BaseDataLoader
 
 
 # from eval_anything.utils.registry import TemplateRegistry as get_template_class
-from eval_anything.utils.utils import MultiChoicePromptBuilder, MultiChoice1PromptBuilder, MultiChoicePromptChineseBuilder, DialoguePromptBuilder, DialogueWithAnswerPromptBuilder, DialoguePromptChineseBuilder, CodesGenerationPromptBuilder
+from eval_anything.utils.utils import MultiChoicePromptBuilder, MultiChoiceAutoLabelPromptBuilder, MultiChoicePromptChineseBuilder, DialoguePromptBuilder, DialoguePromptChineseBuilder, CodesGenerationPromptBuilder
 from eval_anything.utils.data_type import InferenceInput
 
 
@@ -47,10 +47,10 @@ class T2TDataLoader(BaseDataLoader):
         return prompts
     
     # for mc1_targets of truthfulqa multiple_choice subset currently
-    def build_multi_choice_1_prompt(self, task: namedtuple, data: list[dict]):
+    def build_multi_choice_auto_label_prompt(self, task: namedtuple, data: list[dict]):
         few_shot_examples = self.few_shot_data[task.name][: self.num_shot] if self.num_shot else []
 
-        prompt_builder = MultiChoice1PromptBuilder(
+        prompt_builder = MultiChoiceAutoLabelPromptBuilder(
             few_shot_examples=few_shot_examples,
             cot=self.enable_cot
         )
@@ -95,7 +95,7 @@ class T2TDataLoader(BaseDataLoader):
     
     def build_dialogue_with_answer_prompt(self, task: namedtuple, data: list[dict]):
         few_shot_examples = self.few_shot_data[task.name][: self.num_shot] if self.num_shot else []
-        prompt_builder = DialogueWithAnswerPromptBuilder(
+        prompt_builder = DialoguePromptBuilder(
             few_shot_examples=few_shot_examples, 
             cot=self.enable_cot
         )

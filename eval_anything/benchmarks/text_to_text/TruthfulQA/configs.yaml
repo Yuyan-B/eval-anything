@@ -36,7 +36,7 @@ task:
     avalable_evaluate_tools: ["match_origin_dialogue"]
 answer_extractor:
   - name: match_origin_dialogue
-    function: regex_match_dialogue
+    function: null
     args:
       additional_pattern: "{original_pattern}"
       match_index: 0

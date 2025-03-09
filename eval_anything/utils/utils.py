@@ -72,7 +72,7 @@ class MultiChoicePromptBuilder():
             prompt += f"\n{self.cot_context}"
         return prompt
     
-class MultiChoice1PromptBuilder():
+class MultiChoiceAutoLabelPromptBuilder():
     def __init__(self, multi_choice_prompt: Optional[str] = None, cot_context: Optional[str] = None, few_shot_examples: Optional[list[str]] = None, cot: bool = False):
         self.multi_choice_prompt = multi_choice_prompt if multi_choice_prompt else "Now please answer the following multiple choice question."
         self.cot_context = cot_context if cot_context else "Let's think step by step."
@@ -160,32 +160,10 @@ class DialoguePromptBuilder():
 
     def marge_QA(self, question: str, ground_truth: str = "") -> str:
         prompt = f"Question: {question}\n"
-        answer = f"\nAnswer: {self.cot_context} {ground_truth}" if self.enable_cot else f"\nAnswer: {ground_truth}"
+        answer = f"Answer: {self.cot_context} {ground_truth}" if self.enable_cot else f"Answer: {ground_truth}"
         return prompt + answer
 
-    def build_prompt(self, input: str) -> str:
-        context = ""
-        if self.few_shot_examples:
-            for question, answer in zip(self.few_shot_examples['question'], self.few_shot_examples['answer']):
-                context += self.marge_QA(question, answer)
-            context = context + "\n" if context else ""
-
-        question = self.marge_QA(input)
-        prompt = f"{context}{question}"
-        return prompt
-    
-class DialogueWithAnswerPromptBuilder():
-    def __init__(self, few_shot_examples: Optional[list[str]] = None, cot_context: Optional[str] = None, cot: bool = False):
-        self.cot_context = cot_context if cot_context else "Let's think step by step."
-        self.few_shot_examples = few_shot_examples
-        self.enable_cot = cot
-
-    def marge_QA(self, question: str, ground_truth: str = "") -> str:
-        prompt = f"Q: {question}\n"
-        answer = f"A: {self.cot_context} {ground_truth}" if self.enable_cot else f"A: {ground_truth}"
-        return prompt + answer
-
-    def build_prompt(self, input: str, ref_answer: str) -> str:
+    def build_prompt(self, input: str, ref_answer: str = "") -> str:
         context = ""
         if self.few_shot_examples:
             for question, answer in zip(self.few_shot_examples['question'], self.few_shot_examples['answer']):

@@ -12,7 +12,6 @@ T2T_EXTRACTOR_MAP = {
     "regex_match_multi_letter": "RegexMatchMultiLetter",
     "regex_match_code": "RegexMatchCode",
     "regex_match_math": "RegexMatchMath",
-    "regex_match_dialogue": "RegexMatchDialogue",
 }
 
 T2T_JUDGER_MAP = {
@@ -186,19 +185,14 @@ class RegexMatchCode(RegexMatch):
     
 class RegexMatchMath(RegexMatch):
     def __init__(self, additional_pattern: str = None, match_index: int = None):
-        pass
+        pattern_match_letter = r"###"
+        self.pattern = additional_pattern.format(original_pattern=pattern_match_letter) if additional_pattern else pattern_match_letter
+        self.match_index = match_index
 
     def apply(self, data: Union[List, Iterable]) -> Union[List, None]:
         from eval_anything.utils.utils import parse_math_answer
         matches = [parse_math_answer(item) for item in data]
         return matches
-    
-class RegexMatchDialogue(RegexMatch):
-    def __init__(self, additional_pattern: str = None, match_index: int = None):
-        pass
-
-    def apply(self, data: Union[List, Iterable]) -> Union[List, None]:
-        return data
     
 class JudgeMC1(BaseTool):
     def __init__(self):

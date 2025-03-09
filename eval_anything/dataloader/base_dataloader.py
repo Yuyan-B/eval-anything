@@ -29,7 +29,7 @@ TASK_TYPE_MAP = {
         'DialogueList': 'build_dialogue_list_prompt',
         'DialogueChinese': 'build_dialogue_chinese_prompt',
         'MultiChoice': 'build_multi_choice_prompt',
-        'MultiChoice1': 'build_multi_choice_1_prompt',
+        'MultiChoiceAutoLabel': 'build_multi_choice_auto_label_prompt',
         'MultiChoiceChinese': 'build_multi_choice_prompt_chinese',
         'CodeGeneration': 'build_codes_generation_prompt'
     }
