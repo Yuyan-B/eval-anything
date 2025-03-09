@@ -51,13 +51,28 @@ class RegexMatch(BaseTool):
     def __call__(self, data: Union[List, Iterable]) -> Union[List, None]:
         return self.apply(data)
     
+
 class RegexMatchNumber(RegexMatch):
     def __init__(self, additional_pattern: str = None, match_index: int = None):
         pattern_match_number = r"(?:[+-]?(?:\d+/\d+|(?:\d*\.\d+)|\d+)|√(?:\([+-]?(?:\d+/\d+|(?:\d*\.\d+)|\d+)\)|[+-]?(?:\d+/\d+|(?:\d*\.\d+)|\d+)))"
         self.pattern = additional_pattern.format(original_pattern=pattern_match_number) if additional_pattern else pattern_match_number
         self.match_index = match_index
+
+    def apply(self, data: Union[List[str], Iterable[str]]) -> List[Union[str, None]]:
+        import re
+        from eval_anything.utils.utils import _strip_string, remove_few_shot_prefix, remove_boxed
+        def match_text(text):
+            if "\\boxed" in text:
+                return remove_boxed(text)
+            matches = re.findall(self.pattern, text)
+            return matches[self.match_index] if matches else None
+
+        return [_strip_string(match_text(remove_few_shot_prefix(item))) for item in data]
+
+    def __call__(self, data: Union[List[str], Iterable[str]]) -> List[Union[str, None]]:
+        return self.apply(data)
         
-class RegexMatchText(RegexMatch):
+class RegexMatchText(RegexMatch):   
     def __init__(self, additional_pattern: str = None, match_index: int = None):
         # Pattern to match single letter answers A, B, C, D (case insensitive)
         pattern_match_text = r"[A-Da-d]"
@@ -181,17 +196,6 @@ class RegexMatchCode(RegexMatch):
                 return code_blocks[0]  # Default to first match
             
         matches = [match_text(item) for item in data]
-        return matches
-    
-class RegexMatchMath(RegexMatch):
-    def __init__(self, additional_pattern: str = None, match_index: int = None):
-        pattern_match_letter = r"###"
-        self.pattern = additional_pattern.format(original_pattern=pattern_match_letter) if additional_pattern else pattern_match_letter
-        self.match_index = match_index
-
-    def apply(self, data: Union[List, Iterable]) -> Union[List, None]:
-        from eval_anything.utils.utils import parse_math_answer
-        matches = [parse_math_answer(item) for item in data]
         return matches
     
 class JudgeMC1(BaseTool):

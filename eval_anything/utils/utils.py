@@ -770,73 +770,17 @@ def remove_few_shot_prefix(string:str):
                 string = string[index + len(prefix):].strip()
     return string
 
-def parse_math_answer(raw_string):
-    def remove_boxed(s):
-        left = "\\boxed{"
-        try:
-            assert s[:len(left)] == left
-            assert s[-1] == "}"
-            answer = s[len(left):-1]
-            if "=" in answer:
-                answer = answer.split("=")[-1].lstrip(" ")
-            return answer
-        except:
-            return None
+def remove_boxed(s):
+    idx = max(s.rfind("\\boxed"), s.rfind("\\fbox"))
+    if idx < 0:
+        return None
 
-    def last_boxed_only_string(string):
-        idx = string.rfind("\\boxed")
-        if idx < 0:
-            idx = string.rfind("\\fbox")
-            if idx < 0:
-                return None
-        i = idx
-        right_brace_idx = None
-        num_left_braces_open = 0
-        while i < len(string):
-            if string[i] == "{":
-                num_left_braces_open += 1
-            if string[i] == "}":
-                num_left_braces_open -= 1
-                if num_left_braces_open == 0:
-                    right_brace_idx = i
-                    break
-            i += 1
-
-        if right_brace_idx == None:
-            retval = None
-        else:
-            retval = string[idx:right_brace_idx + 1]
-
-        return retval
-
-    def get_answer_with_dollar_sign(s):
-        first_pattern = "\$(.*)\$"
-        last_match = None
-        matches = re.findall(first_pattern, s)
-        if matches:
-            last_match = matches[-1]
-            if "=" in last_match:
-                last_match = last_match.split("=")[-1].lstrip(" ")
-        return last_match
-
-    def get_answer_without_dollar_sign(s):
-        last_match = None
-        if "=" in s:
-            last_match = s.split("=")[-1].lstrip(" ").rstrip(".")
-            if "\\" in last_match:
-                last_match = last_match.split("\\")[0]
-        else:
-            pattern = "(?:\\$)?\d+(?:\.\d+)?(?![\w\d])"
-            matches = re.findall(pattern, s)
-            if matches:
-                last_match = matches[-1]
-        return last_match
-
-    raw_string = remove_few_shot_prefix(raw_string)
-    if "\\boxed" in raw_string:
-        answer = remove_boxed(last_boxed_only_string(raw_string))
-    else:
-        answer = get_answer_with_dollar_sign(raw_string)
-        if not answer:
-            answer = get_answer_without_dollar_sign(raw_string)
-    return _strip_string(answer)
+    num_left_braces_open = 0
+    for i in range(idx, len(s)):
+        if s[i] == "{":
+            num_left_braces_open += 1
+        elif s[i] == "}" and num_left_braces_open and not (num_left_braces_open := num_left_braces_open - 1):
+            answer = s[idx:i + 1]
+            answer = answer[len("\\boxed{"):-1] if answer.startswith("\\boxed{") else answer
+            return answer.split("=")[-1].lstrip(" ") if "=" in answer else answer
+    return None

@@ -204,10 +204,10 @@ answer_extractor:
       additional_pattern: "{original_pattern}"
       match_index: 0
   - name: match_math
-    function: regex_match_math
+    function: regex_match_number
     args:
       additional_pattern: "{original_pattern}"
-      match_index: 0
+      match_index: -1
 metrics:
   - name: accuracy
     function: accuracy
