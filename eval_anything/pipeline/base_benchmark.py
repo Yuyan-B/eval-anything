@@ -5,6 +5,7 @@ from collections import namedtuple
 # Local imports
 from eval_anything.utils.logger import EvalLogger
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput, EvaluationResult
+from eval_anything.evaluate_tools.metrics import MetricCalculator, OverallMetricCalculator
 from eval_anything.models.base_model import MODEL_MAP, CLASS_MAP
 from eval_anything.evaluate_tools.t2t_tools import *
 import eval_anything.evaluate_tools.t2t_tools as T2T_TOOLS
@@ -118,6 +119,18 @@ class BaseBenchmark(ABC):
         """
         return model.generation(input_data)
     
+    def calculate_overall_metrics(self, metric_list: list[namedtuple], result: dict[str, dict[str, dict[str, float]]] = None):
+        """Calculate overall metrics
+        Args:
+            metric_list (list[namedtuple]): metric list
+            result (dict[str, dict[str, dict[str, float]]]): evaluation results. {task: {metric: {extractor: score}}}
+            
+        Returns:
+            overall_metrics (dict[str, dict[str, dict[str, float]]]): overall metrics {overall_metric: {metric: {extractor: score}}}
+        """
+        overall_metric_calculator = OverallMetricCalculator(metric_list)
+        return overall_metric_calculator(result)
+    
     def run(self,
             task_list: list[str]) -> tuple[dict[str, list[EvaluationResult]], dict[str, dict[str, float]], dict[str, dict[str, float]]]:
         """Run benchmark
@@ -165,7 +178,10 @@ class BaseBenchmark(ABC):
         output_text = [item.response[0] for item in inference_outputs]
         extracted_results = {}
         for answer_extractor in answer_extractors:
-            extracted_results[answer_extractor.name] = getattr(T2T_TOOLS, T2T_EXTRACTOR_MAP[answer_extractor.function])(**(answer_extractor.args._asdict())).apply(output_text)
+            if answer_extractor.function is not None:
+                extracted_results[answer_extractor.name] = getattr(T2T_TOOLS, T2T_EXTRACTOR_MAP[answer_extractor.function])(**(answer_extractor.args._asdict())).apply(output_text)
+            else:
+                extracted_results[answer_extractor.name] = output_text
         
         evaluation_details = []
         for inference_output, ref_answer, index in zip(inference_outputs, ref_answers, range(len(inference_outputs))):

@@ -2,12 +2,11 @@ import importlib
 
 benchmark_modules = [
     "benchmarks.text_to_text.gsm8k.eval",
-<<<<<<< HEAD
-    "benchmarks.text_image_to_text.mmmu.eval",
-=======
     "benchmarks.text_to_text.mmlu.eval",
     "benchmarks.text_to_text.HumanEval.eval",
->>>>>>> refs/remotes/origin/main
+    "benchmarks.text_to_text.AGIEval.eval",
+    "benchmarks.text_to_text.TruthfulQA.eval",
+    "benchmarks.text_image_to_text.mmmu.eval",
 ]
 
 for module in benchmark_modules:

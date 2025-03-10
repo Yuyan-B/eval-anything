@@ -4,15 +4,20 @@
 from abc import ABC, abstractmethod
 from eval_anything.evaluate_tools.base_tools import BaseTool
 from typing import Union, List, Iterable
+import numpy as np
 
 T2T_EXTRACTOR_MAP = {
     "regex_match_number": "RegexMatchNumber",
     "regex_match_letter": "RegexMatchLetter",
-    "regex_match_code": "RegexMatchCode"
+    "regex_match_multi_letter": "RegexMatchMultiLetter",
+    "regex_match_code": "RegexMatchCode",
+    "regex_match_math": "RegexMatchMath",
 }
 
 T2T_JUDGER_MAP = {
     "judge_equal": "JudgeEqual",
+    "judge_mc1": "JudgeMC1",
+    "judge_mc2": "JudgeMC2",
 }
 
 
@@ -46,13 +51,28 @@ class RegexMatch(BaseTool):
     def __call__(self, data: Union[List, Iterable]) -> Union[List, None]:
         return self.apply(data)
     
+
 class RegexMatchNumber(RegexMatch):
     def __init__(self, additional_pattern: str = None, match_index: int = None):
         pattern_match_number = r"(?:[+-]?(?:\d+/\d+|(?:\d*\.\d+)|\d+)|√(?:\([+-]?(?:\d+/\d+|(?:\d*\.\d+)|\d+)\)|[+-]?(?:\d+/\d+|(?:\d*\.\d+)|\d+)))"
         self.pattern = additional_pattern.format(original_pattern=pattern_match_number) if additional_pattern else pattern_match_number
         self.match_index = match_index
+
+    def apply(self, data: Union[List[str], Iterable[str]]) -> List[Union[str, None]]:
+        import re
+        from eval_anything.utils.utils import _strip_string, remove_few_shot_prefix, remove_boxed
+        def match_text(text):
+            if "\\boxed" in text:
+                return remove_boxed(text)
+            matches = re.findall(self.pattern, text)
+            return matches[self.match_index] if matches else None
+
+        return [_strip_string(match_text(remove_few_shot_prefix(item))) for item in data]
+
+    def __call__(self, data: Union[List[str], Iterable[str]]) -> List[Union[str, None]]:
+        return self.apply(data)
         
-class RegexMatchText(RegexMatch):
+class RegexMatchText(RegexMatch):   
     def __init__(self, additional_pattern: str = None, match_index: int = None):
         # Pattern to match single letter answers A, B, C, D (case insensitive)
         pattern_match_text = r"[A-Da-d]"
@@ -83,8 +103,8 @@ class JudgeEqual(BaseTool):
 
 class RegexMatchLetter(RegexMatch):
     def __init__(self, additional_pattern: str = None, match_index: int = None):
-        # Base pattern to match letters in parentheses (A-D)
-        pattern_match_letter = r"\(([A-Da-d])\)"  # Capture the letter between parentheses
+        # Base pattern to match letters in parentheses (A-Z)
+        pattern_match_letter = r"\(([A-Za-z])\)"  # Capture the letter between parentheses
         self.pattern = additional_pattern.format(original_pattern=pattern_match_letter) if additional_pattern else pattern_match_letter
         self.match_index = match_index
 
@@ -104,6 +124,27 @@ class RegexMatchLetter(RegexMatch):
         matches = [match_text(item) for item in data]
         return matches
 
+class RegexMatchMultiLetter(RegexMatch):
+    def __init__(self, additional_pattern: str = None, match_index: int = None):
+        pattern_match_letter = r"\(([A-Za-z])\)"
+        self.pattern = additional_pattern.format(original_pattern=pattern_match_letter) if additional_pattern else pattern_match_letter
+        self.match_index = match_index
+
+    def apply(self, data: Union[List, Iterable]) -> Union[List, None]:
+        def match_text(text):
+            import re
+            pattern = re.compile(self.pattern, re.IGNORECASE)
+            match = list(pattern.finditer(text))
+            if match:
+                if self.match_index is not None:
+                    return [match[self.match_index].group(1).upper()]
+                else:
+                    return [match.group(1).upper()]
+            else:
+                return None
+        matches = [match_text(item) for item in data]
+        return matches
+    
 class RegexMatchCode(RegexMatch):
     def __init__(self, additional_pattern: str = None, match_index: int = None, language: str = "python"):
         # Pattern to match code blocks between ```python ``` or ``` ```
@@ -156,3 +197,30 @@ class RegexMatchCode(RegexMatch):
             
         matches = [match_text(item) for item in data]
         return matches
+    
+class JudgeMC1(BaseTool):
+    def __init__(self):
+        super().__init__()
+    
+    def apply(self, scores, best_answer_index) -> bool:
+        return True if scores['scores_true'][best_answer_index] > max(scores['scores_false']) else False
+    
+    def __call__(self, scores, best_answer_index) -> bool:
+        return self.apply(scores, best_answer_index)
+    
+class JudgeMC2(BaseTool):
+    def __init__(self):
+        super().__init__()
+
+    def apply(self, scores):
+        scores_true = scores['scores_true']
+        scores_false = scores['scores_false']
+
+        probs_true = np.exp(scores_true)
+        probs_false = np.exp(scores_false)
+        probs_true = probs_true / (sum(probs_true) + sum(probs_false))
+        
+        return sum(probs_true)
+
+    def __call__(self, scores):
+        return self.apply(scores)
