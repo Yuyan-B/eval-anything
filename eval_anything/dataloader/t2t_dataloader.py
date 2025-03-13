@@ -40,9 +40,23 @@ class T2TDataLoader(BaseDataLoader):
         question_key = task.question_key
         answer_key = task.answer_key
         ground_truth_key = task.ground_truth_key
-        for item in data:
-            prompt = prompt_builder.build_prompt(item[question_key], item[answer_key])
-            prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
+
+        if isinstance(answer_key, list):
+            if len(answer_key) == 2:
+                answer_key_level_1 = answer_key[0]
+                answer_key_level_2 = answer_key[1]
+                for item in data:
+                    prompt = prompt_builder.build_prompt(item[question_key], item[answer_key_level_1][answer_key_level_2], question_key, answer_key, ground_truth_key)
+                    prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
+            else:
+                for item in data:
+                    answer_text = [item[answer_key_single] for answer_key_single in answer_key]
+                    prompt = prompt_builder.build_prompt(item[question_key], answer_text, question_key, answer_key, ground_truth_key)
+                    prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
+        else:
+            for item in data:
+                prompt = prompt_builder.build_prompt(item[question_key], item[answer_key], question_key, answer_key, ground_truth_key)
+                prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
         
         return prompts
     
@@ -75,9 +89,23 @@ class T2TDataLoader(BaseDataLoader):
         question_key = task.question_key
         answer_key = task.answer_key
         ground_truth_key = task.ground_truth_key
-        for item in data:
-            prompt = prompt_builder.build_prompt(item[question_key], item[answer_key])
-            prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
+
+        if isinstance(answer_key, list):
+            if len(answer_key) == 2:
+                answer_key_level_1 = answer_key[0]
+                answer_key_level_2 = answer_key[1]
+                for item in data:
+                    prompt = prompt_builder.build_prompt(item[question_key], item[answer_key_level_1][answer_key_level_2], question_key, answer_key, ground_truth_key)
+                    prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
+            else:
+                for item in data:
+                    answer_text = [item[answer_key_single] for answer_key_single in answer_key]
+                    prompt = prompt_builder.build_prompt(item[question_key], answer_text, question_key, answer_key, ground_truth_key)
+                    prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
+        else:
+            for item in data:
+                prompt = prompt_builder.build_prompt(item[question_key], item[answer_key], question_key, answer_key, ground_truth_key)
+                prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
         
         return prompts
 
