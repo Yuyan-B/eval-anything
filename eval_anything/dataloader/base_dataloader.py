@@ -87,7 +87,7 @@ class BaseDataLoader:
             try:
                 data_path = os.path.join(get_project_root(), "eval_anything", self.bench_cfgs.dataset.cot_fewshot_data_path)
                 if os.path.exists(data_path):
-                    few_shot_data = load_dataset(data_path, data_files=self.bench_cfgs.dataset.cot_fewshot_data_file, name=task, split=cot_fewshot_data_split)
+                    few_shot_data = load_dataset(data_path, data_files=self.bench_cfgs.dataset.cot_fewshot_data_file, split=cot_fewshot_data_split)
                     return few_shot_data
                 else:
                     few_shot_data = load_dataset(self.bench_cfgs.dataset.cot_fewshot_data_path, name=task, data_files=self.bench_cfgs.dataset.cot_fewshot_data_file, split=cot_fewshot_data_split)
