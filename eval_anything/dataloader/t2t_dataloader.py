@@ -40,8 +40,9 @@ class T2TDataLoader(BaseDataLoader):
         question_key = task.question_key
         answer_key = task.answer_key
         ground_truth_key = task.ground_truth_key
+
         for item in data:
-            prompt = prompt_builder.build_prompt(item[question_key], item[answer_key])
+            prompt = prompt_builder.build_prompt(item[question_key], item, question_key, answer_key, ground_truth_key)
             prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
         
         return prompts
@@ -75,8 +76,9 @@ class T2TDataLoader(BaseDataLoader):
         question_key = task.question_key
         answer_key = task.answer_key
         ground_truth_key = task.ground_truth_key
+
         for item in data:
-            prompt = prompt_builder.build_prompt(item[question_key], item[answer_key])
+            prompt = prompt_builder.build_prompt(item[question_key], item, question_key, answer_key, ground_truth_key)
             prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
         
         return prompts

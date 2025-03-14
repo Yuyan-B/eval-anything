@@ -62,7 +62,11 @@ class vllmLM(BaseModel):
         )
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
-        self.tokenizer.pad_token = self.tokenizer.eos_token
+        if self.tokenizer.pad_token is None:
+            if hasattr(self.tokenizer, "add_special_tokens"):
+                self.tokenizer.add_special_tokens({"pad_token": self.tokenizer.eos_token})
+            else:
+                print("Warning: tokenizer does not support adding special tokens")
 
     def generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]:
         return self._generation(inputs)
