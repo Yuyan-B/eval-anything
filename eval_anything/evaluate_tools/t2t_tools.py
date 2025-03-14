@@ -1,10 +1,11 @@
 """
-评估工具包（包括各种指标的计算以及指定pattern的提取）
+Evaluation tools package (including calculation of various metrics and extraction of specified patterns)
 """
 from abc import ABC, abstractmethod
 from eval_anything.evaluate_tools.base_tools import BaseTool
-from typing import Union, List, Iterable
+from typing import Union, List, Iterable, Optional
 import numpy as np
+import re
 
 T2T_EXTRACTOR_MAP = {
     "regex_match_number": "RegexMatchNumber",
@@ -12,10 +13,12 @@ T2T_EXTRACTOR_MAP = {
     "regex_match_multi_letter": "RegexMatchMultiLetter",
     "regex_match_code": "RegexMatchCode",
     "regex_match_math": "RegexMatchMath",
+    "regex_match_open": "RegexMatchOpen",
 }
 
 T2T_JUDGER_MAP = {
     "judge_equal": "JudgeEqual",
+    "judge_equal_list": "JudgeEqualList",
     "judge_mc1": "JudgeMC1",
     "judge_mc2": "JudgeMC2",
 }
@@ -96,10 +99,49 @@ class JudgeEqual(BaseTool):
         super().__init__()
     
     def apply(self, data_1, data_2) -> bool:
-        return data_1 == data_2
+            return data_1 == data_2
     
     def __call__(self, data_1, data_2) -> bool:
         return self.apply(data_1, data_2)
+    
+class JudgeEqualList(BaseTool):
+    def __init__(self):
+        super().__init__()
+
+    def apply(self, data_1, data_2) -> bool:
+        """Compare model answer list with ground truth
+        
+        Args:
+            data_1: Model answer list (will be converted to strings)
+            data_2: Ground truth (kept as original type)
+            
+        Returns:
+            bool: True if ground truth matches any answer in model's list
+        """
+        if data_1 is None:
+            return False
+
+        # Convert all elements in data_1 to strings
+        print("data_1", data_1)
+        print("data_2", data_2)
+        str_data_1 = []
+        for item in data_1:
+            if isinstance(item, (int, float)):
+                # For numbers, preserve exact representation
+                str_data_1.append(f"{item}")
+            elif item is None:
+                str_data_1.append("")
+            else:
+                str_data_1.append(str(item))
+
+        # Convert data_2 to string for comparison
+        str_data_2 = str(data_2)
+        
+        return str_data_2 in str_data_1
+
+    def __call__(self, data_1, data_2) -> bool:
+        return self.apply(data_1, data_2)
+    
 
 class RegexMatchLetter(RegexMatch):
     def __init__(self, additional_pattern: str = None, match_index: int = None):
@@ -197,6 +239,165 @@ class RegexMatchCode(RegexMatch):
             
         matches = [match_text(item) for item in data]
         return matches
+
+class RegexMatchOpen(RegexMatch):
+    def __init__(self, additional_pattern: str = None, match_index: int = None):
+        super().__init__(additional_pattern, match_index)
+        self.letter_pattern = r"\(([A-Za-z])\)"
+        self.indicators_of_keys = [
+            'could be ', 'so ', 'is ',
+            'thus ', 'therefore ', 'final ', 
+            'answer ', 'result '
+        ]
+
+    def _match_letter(self, text: str) -> Optional[str]:
+        """Match letter in parentheses, handling match_index properly
+        
+        Args:
+            text (str): Input text
+            
+        Returns:
+            Optional[str]: Matched letter (uppercase) or None
+            When match_index is -1, returns the last matched letter
+            When match_index is None or 0, returns the first matched letter
+            When match_index is positive, returns the letter at that position if exists
+        """
+        try:
+            pattern = re.compile(self.letter_pattern, re.IGNORECASE)
+            matches = list(pattern.finditer(text))
+            
+            if not matches:
+                return None
+                
+            if self.match_index is not None:
+                # Handle negative index (e.g., -1 for last match)
+                if self.match_index < 0:
+                    index = len(matches) + self.match_index
+                else:
+                    index = self.match_index
+                    
+                # Check if index is valid
+                if 0 <= index < len(matches):
+                    return matches[index].group(1).upper()
+                return None
+            else:
+                # When no match_index specified, use the first match
+                return matches[0].group(1).upper()
+                
+        except (IndexError, AttributeError, TypeError):
+            return None
+
+    def _check_is_number(self, string: str) -> bool:
+        """Check if the given string is a number"""
+        try:
+            float(string.replace(',', ''))
+            return True
+        except ValueError:
+            return False
+
+    def _normalize_str(self, string):
+        """
+        Normalize the str to lower case and make them float numbers if possible.
+        """
+        # if number, numerize it.
+        string = string.strip()
+
+        is_number = self._check_is_number(string)
+
+        if is_number:
+            string = string.replace(',', '')
+            string = float(string)
+            # leave 2 decimal
+            string = round(string, 2)
+            return [string]
+        else: # it's likely to be a string
+            # lower it 
+            string = string.lower()
+            if len(string) == 1:
+                return [" " + string, string + " "] # avoid trivial matches
+            return [string]
+
+    def _extract_numbers(self, string):
+        """
+        Exact all forms of numbers from a string with regex.
+        """
+        # Pattern for numbers with commas
+        pattern_commas = r'-?\b\d{1,3}(?:,\d{3})+\b'
+        # Pattern for scientific notation
+        pattern_scientific = r'-?\d+(?:\.\d+)?[eE][+-]?\d+'
+        # Pattern for simple numbers without commas
+        pattern_simple = r'-?(?:\d+\.\d+|\.\d+|\d+\b)(?![eE][+-]?\d+)(?![,\d])'
+
+        # Extract numbers with commas
+        numbers_with_commas = re.findall(pattern_commas, string)
+        # Extract numbers in scientific notation
+        numbers_scientific = re.findall(pattern_scientific, string)
+        # Extract simple numbers without commas
+        numbers_simple = re.findall(pattern_simple, string)
+
+        # Combine all extracted numbers
+        all_numbers = numbers_with_commas + numbers_scientific + numbers_simple
+        return all_numbers
+
+    def _get_key_subresponses(self, response: str) -> List[str]:
+        """Extract key responses from the model output"""
+        key_responses = []
+        response = response.strip().strip(".").lower()
+        sub_responses = re.split(r'\.\s(?=[A-Z])|\n', response)
+        
+        for index, resp in enumerate(sub_responses):
+            indicators = self.indicators_of_keys + (['='] if index == len(sub_responses) - 1 else [])
+            
+            shortest_key_response = None
+            for indicator in indicators:
+                if indicator in resp:
+                    current_response = resp.split(indicator)[-1].strip()
+                    if not shortest_key_response or len(current_response) < len(shortest_key_response):
+                        shortest_key_response = current_response
+            
+            if shortest_key_response and shortest_key_response.strip() not in [":", ",", ".", "!", "?", ";", ":", "'"]:
+                key_responses.append(shortest_key_response)
+        
+        return key_responses if key_responses else [response]
+
+    def apply(self, data: Union[List, Iterable]) -> Union[List, None]:
+        """Process responses with both letter matching and open-ended analysis"""
+        try:
+            def process_single_response(response: str) -> List:
+                # Ensure response is string
+                if not isinstance(response, str):
+                    response = str(response)
+                
+                # Match letter
+                letter_match = self._match_letter(response)
+                
+                # Process as open-ended response
+                key_responses = self._get_key_subresponses(response)
+                pred_list = key_responses.copy()
+                
+                for resp in key_responses:
+                    pred_list.extend(self._extract_numbers(resp))
+                
+                tmp_pred_list = []
+                for pred in pred_list:
+                    tmp_pred_list.extend(self._normalize_str(str(pred)))
+                
+                final_pred_list = [letter_match]
+                final_pred_list.extend(list(set(tmp_pred_list)))
+                
+                return final_pred_list
+
+            if not data:
+                return []
+            
+            return [process_single_response(response) for response in data]
+        except Exception as e:
+            # Log error if needed
+            print(f"Error processing responses: {e}")
+            return None
+
+    def __call__(self, data: Union[List, Iterable]) -> Union[List, None]:
+        return self.apply(data)
     
 class JudgeMC1(BaseTool):
     def __init__(self):

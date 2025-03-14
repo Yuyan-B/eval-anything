@@ -12,7 +12,7 @@
 dataset:
   name: mmmu
   path: MMMU/MMMU
-  split: test
+  split: validation
   size: 
   modality: text-image-to-text
   fewshot_data_path: MMMU/MMMU
@@ -22,34 +22,28 @@ dataset:
   cot_fewshot_data_name: null
   cot_fewshot_data_split: null
   max_shot: 5
-  default_task_list: ["Accounting"]
+  default_task_list: ["Architecture_and_Engineering"]
 task: 
-  - name: Accounting
-    type: MultiChoice
+  - name: Architecture_and_Engineering
+    type: MultiChoice # Placeholder, because MMMU label question type for each single question instead of task
     data_files: null
     question_key: question
     answer_key: options
     ground_truth_key: answer
-    candidate_labels: [A, B, C, D]
-    avalable_evaluate_tools: ["RegexMatchText"]
+    candidate_labels: ["A", "B", "C", "D"]
+    avalable_evaluate_tools: ["match_open_ended"]
 answer_extractor:
-  - name: match_last_letter
-    function: regex_match_letter
+  - name: match_open_ended
+    function: regex_match_open
     args:
-      additional_pattern: "{original_pattern}"
-      match_index: -1   # Take the last match
-  - name: match_first_letter
-    function: regex_match_letter
-    args:
-      additional_pattern: "{original_pattern}"
-      match_index: 0
+      match_index: -1   # Index for multiple choice
 metrics:
   - name: accuracy
     function: accuracy
     args:
 overall_metrics:
-  - name: null
-    function: null
+  - name: average
+    function: average_across_tasks
     args:
       null
   

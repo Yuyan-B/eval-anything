@@ -1,11 +1,11 @@
-import os
-import ast
+import re
 from eval_anything.utils.register import MMDatasetRegistry
 from eval_anything.utils.data_type import InferenceInput
-import eval_anything.utils.utils as utils
 from eval_anything.utils.utils import MultiChoicePromptBuilder, DialoguePromptBuilder
 from eval_anything.dataloader.base_dataloader import TASK_TYPE_MAP
-from datasets import Dataset, load_dataset
+from eval_anything.utils.mm_data_manager import ImageManager
+from datasets import Dataset
+from typing import List
 from collections import namedtuple
 
 class BaseMMDataset:
@@ -53,44 +53,52 @@ class MMMUDataset(BaseMMDataset):
     def __init__(self, bench_cfgs: namedtuple, task: namedtuple, enable_cot: bool, num_shot: int):
         super().__init__(bench_cfgs, task, enable_cot, num_shot)
 
-    def build_multi_choice_prompt(self, item: dict):
-        self.prompt_builder = MultiChoicePromptBuilder(
-            candidate_labels=self.task.candidate_labels,
-            few_shot_examples=self.few_shot_examples,
-            cot=self.enable_cot
-        )
-        prompt = self.prompt_builder.build_prompt(item[self.task.question_key], ast.literal_eval(item[self.task.answer_key]))
-        return prompt
+    def get_image_indice(self, text: str)->List[int]:
+        pattern = r'<image (\d+)>'
+        matches = re.findall(pattern, text)
+        return [int(num) for num in matches]
 
     def set_few_shot_examples(self, few_shot_dataset: Dataset | None):
-        for item in list(few_shot_dataset)[:self.num_shot]:
-            images = []
-            for i in range(1, 8):
-                if item[f"image_{i}"]:
-                    images.append(item[f"image_{i}"])
-            self.few_shot_mm_examples.append(images)
+        raise NotImplementedError("MMMU does not support few-shot learning.")
 
-            self.few_shot_examples.append({
-                "question": item[self.task.question_key],
-                "candidate_answers": ast.literal_eval(item[self.task.answer_key]),
-                "ground_truth": item[self.task.ground_truth_key]
-            })
-
-    def _to_InferenceInput(self, dataset: Dataset):
+    # refer: https://github.com/MMMU-Benchmark/MMMU/blob/main/mmmu/utils/data_utils.py#L136
+    def _to_InferenceInput(self, dataset: Dataset) -> List["InferenceInput"]:
+        """
+        Convert a dataset to a list of InferenceInput objects.
+        
+        Args:
+            dataset: Dataset object containing questions, options, and images
+            
+        Returns:
+            List of InferenceInput objects ready for model inference
+        """
         inference_inputs = []
         
         for item in dataset:
-            images = []
-            for i in range(1, 8):
-                if item[f"image_{i}"]:
-                    images.append(item[f"image_{i}"])
+            question = item['question']
+            if item['question_type'] == 'multiple-choice':
+                options = eval(item['options'])
+                example = ""
+                letter_to_option = {}
+                
+                for idx, option in enumerate(options):
+                    option_letter = chr(ord('A') + idx)
+                    example += f"({option_letter}) {option}\n"
+                    letter_to_option[option_letter] = option
+                
+                formatted_prompt = f"{question}\n\n{example}\n\nAnswer with the option's letter from the given choices directly."
+            else:
+                formatted_prompt = f"{question}\n\nAnswer the question using a single word or phrase."
+            
+            image_ids = self.get_image_indice(formatted_prompt)
+            images = [item[f'image_{id}'] for id in image_ids]
+            conversation = ImageManager.prompt_to_conversation(user_prompt=formatted_prompt, images=images)
+
             inference_inputs.append(
                 InferenceInput(
                     task=self.task.name,
-                    text=self.build_multi_choice_prompt(item),
-                    data_files=self.few_shot_mm_examples + images,
-                    ref_answer=item[self.task.ground_truth_key],
+                    conversation=conversation,
+                    ref_answer=item['answer']
                 )
             )
         return inference_inputs
-    
