@@ -357,7 +357,6 @@ def get_messages(modality, prompt):
     }
     return messages.get(modality, [])
 
-
 def get_project_root():
     current = Path(__file__).resolve()
     for parent in current.parents:

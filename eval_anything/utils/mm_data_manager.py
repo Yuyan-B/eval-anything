@@ -1,6 +1,7 @@
 """
 Utility functions for multi-modal data.
-Handle the conversion of multi-modal data to the required format.
+- Handle the conversion between multi-modal data and the required format.
+- TODO: Display multi-modal data.
 """
 
 import PIL

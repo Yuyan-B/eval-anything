@@ -73,20 +73,30 @@ class MultiModalData:
 
 @dataclass
 class InferenceInput:
+    """The input data of a completion request to the LLM.
+
+    Args:
+        task: The task name.
+        conversation: The conversation history.
+        uuid: The unique id of the input.
+        ref_answer: The ground truth answer.
+        metadata: The metadata of the input.
+    """
     task: str
-    conversation: dict
+    conversation: List[Dict]
+    uuid: str
+    ref_answer: str | dict[str, list] | List[any] | int | None
+    metadata: dict
+
     def __init__(
         self,
         task: str,
         conversation: List[Dict[str, str]],
-        text_id: str = None,
         ref_answer: str | dict[str, list] | List[any] | int | None = None,
-        uuid: Dict[str, str] = None,
         metadata: dict = None
     ):
         self.task = task
         self.conversation = conversation
-        self.text_id = text_id
         self.ref_answer = ref_answer    # ground_truth
         self.metadata = metadata or {}  # Store benchmark-specific data
 
@@ -123,26 +133,23 @@ class InferenceOutput:
     """The output data of a completion request to the LLM.
 
     Args:
-        engine: The inference engine used. \\
-        prompt: The prompt string of the request. \\
-        prompt_token_ids: The token IDs of the prompt string. \\
-        prompt_logprobs: The logprobs of the prompt string. \\
-        response: The response string of the request. \\
-        response_token_ids: The token IDs of the response string. \\
+        task: The task name.
+        uuid: The unique id of the input.
+        engine: The inference engine used.
+        response: The response string of the request.
+        response_token_ids: The token IDs of the response string.
         response_logprobs: The logprobs of the response string.
-
-    TODO 还需适配
+        raw_output: The raw output data of the request.
+        mm_data: The multi-modal data of the request.
     """
     task: str    
+    uuid: str
     engine: str
-    prompt: str
     response: str
     response_token_ids: Optional[List[int]]
     response_logprobs: Optional[PromptLogprobs] | dict[str, list]
     raw_output: Optional[Union[RequestOutput, None]]
-    mm_input_data: List[MultiModalData]
-    mm_output_data: List[MultiModalData]
-    uuid: Dict[str, str]
+    mm_data: List[MultiModalData] # TODO: left for mm-generation task
 
     def __post_init__(self):
         pass
@@ -150,8 +157,7 @@ class InferenceOutput:
     def __init__(
         self,
         task: str,
-        uuid: Dict[str, str],   # {modality: uuid}
-        prompt: str,
+        uuid: str,
         response: str,
         engine: str = 'hand',
         response_token_ids: Optional[List[int]] = None,
@@ -161,7 +167,6 @@ class InferenceOutput:
         self.engine = engine
         self.task = task
         self.uuid = uuid
-        self.prompt = prompt
         self.response = response
         self.response_token_ids = response_token_ids
         self.response_logprobs = response_logprobs
@@ -169,13 +174,12 @@ class InferenceOutput:
 
     @classmethod
     def from_vllm_output(
-        cls, task, uuid, prompt, vllm_output: RequestOutput, store_raw: bool = False
+        cls, task, uuid, vllm_output: RequestOutput, store_raw: bool = False
     ):
         return cls(
             engine='vllm',
             task=task,
             uuid=uuid,
-            prompt=prompt,
             response=[output.text for output in vllm_output.outputs],
             response_token_ids=[output.token_ids for output in vllm_output.outputs],
             response_logprobs=[output.logprobs for output in vllm_output.outputs],

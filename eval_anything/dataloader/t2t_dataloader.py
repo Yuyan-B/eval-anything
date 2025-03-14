@@ -27,10 +27,26 @@ from eval_anything.utils.data_type import InferenceInput
 
 
 class T2TDataLoader(BaseDataLoader):
+
+    def build_conversation_from_prompt(self, prompt: str):
+        """
+        Build a default conversation from a text prompt.
+        """
+        conversation = [
+            {
+                "role": "system",
+                "content": "You are a helpful assistant."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+        return conversation
     
     def build_multi_choice_prompt(self, task: namedtuple, data: list[dict]):
         few_shot_examples = self.few_shot_data[task.name][: self.num_shot] if self.num_shot else []
-        # template = get_template_class(self.chat_template)
+        
         prompt_builder = MultiChoicePromptBuilder(
             candidate_labels=task.candidate_labels,
             few_shot_examples=few_shot_examples,
@@ -42,7 +58,8 @@ class T2TDataLoader(BaseDataLoader):
         ground_truth_key = task.ground_truth_key
         for item in data:
             prompt = prompt_builder.build_prompt(item[question_key], item[answer_key])
-            prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
+            conversation = self.build_conversation_from_prompt(prompt)
+            prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer=item[ground_truth_key]))
         
         return prompts
     
@@ -60,7 +77,8 @@ class T2TDataLoader(BaseDataLoader):
         ground_truth_key = task.ground_truth_key
         for item in data:
             prompt = prompt_builder.build_prompt(item[question_key], item[answer_key]['choices'])
-            prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]['labels']))
+            conversation = self.build_conversation_from_prompt(prompt)
+            prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer=item[ground_truth_key]['labels']))
         
         return prompts
 
@@ -77,7 +95,8 @@ class T2TDataLoader(BaseDataLoader):
         ground_truth_key = task.ground_truth_key
         for item in data:
             prompt = prompt_builder.build_prompt(item[question_key], item[answer_key])
-            prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
+            conversation = self.build_conversation_from_prompt(prompt)
+            prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer=item[ground_truth_key]))
         
         return prompts
 
@@ -89,7 +108,11 @@ class T2TDataLoader(BaseDataLoader):
         )
         question_key = task.question_key
         ground_truth_key = task.ground_truth_key
-        prompts = [InferenceInput(task=task.name, text=prompt_builder.build_prompt(item[question_key]), ref_answer=item[ground_truth_key]) for item in data]
+        prompts = []
+        for item in data:
+            prompt = prompt_builder.build_prompt(item[question_key])
+            conversation = self.build_conversation_from_prompt(prompt)
+            prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer=item[ground_truth_key]))
         
         return prompts
     
@@ -109,10 +132,14 @@ class T2TDataLoader(BaseDataLoader):
         for item in data:
             best_answer_index = item[ground_truth_key].index(item[best_ground_truth_key])
             for correct_answer in item[ground_truth_key]:
-                prompts.append(InferenceInput(task=task.name, text=prompt_builder.build_prompt(item[question_key], correct_answer), ref_answer=best_answer_index, text_id=idx))
+                prompt = prompt_builder.build_prompt(item[question_key], correct_answer)
+                conversation = self.build_conversation_from_prompt(prompt)
+                prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer=best_answer_index, text_id=idx))
             idx += 1
             for incorrect_answer in item[anti_ground_truth_key]:    
-                prompts.append(InferenceInput(task=task.name, text=prompt_builder.build_prompt(item[question_key], incorrect_answer), ref_answer=best_answer_index, text_id=idx))        
+                prompt = prompt_builder.build_prompt(item[question_key], incorrect_answer)
+                conversation = self.build_conversation_from_prompt(prompt)
+                prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer=best_answer_index, text_id=idx))        
         return prompts
     
     # for bleurt metric of truthfulqa currently
@@ -130,7 +157,11 @@ class T2TDataLoader(BaseDataLoader):
             if "I have no comment." not in item[ground_truth_key]:
                 item[ground_truth_key].append("I have no comment.")
 
-        prompts = [InferenceInput(task=task.name, text=prompt_builder.build_prompt(item[question_key]), ref_answer={'correct_answers': item[ground_truth_key], 'incorrect_answers': item[anti_ground_truth_key]}) for item in data]
+        prompts = []
+        for item in data:
+            prompt = prompt_builder.build_prompt(item[question_key])
+            conversation = self.build_conversation_from_prompt(prompt)
+            prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer={'correct_answers': item[ground_truth_key], 'incorrect_answers': item[anti_ground_truth_key]}))
         
         return prompts
     
@@ -142,7 +173,11 @@ class T2TDataLoader(BaseDataLoader):
         )
         question_key = task.question_key
         ground_truth_key = task.ground_truth_key
-        prompts = [InferenceInput(task=task.name, text=prompt_builder.build_prompt(item[question_key]), ref_answer=item[ground_truth_key]) for item in data]
+        prompts = []
+        for item in data:
+            prompt = prompt_builder.build_prompt(item[question_key])
+            conversation = self.build_conversation_from_prompt(prompt)
+            prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer=item[ground_truth_key]))
         
         return prompts
 
@@ -158,6 +193,7 @@ class T2TDataLoader(BaseDataLoader):
         ground_truth_key = task.ground_truth_key
         for item in data:
             prompt = prompt_builder.build_prompt(item[question_key], item[ground_truth_key])
-            prompts.append(InferenceInput(task=task.name, text=prompt, ref_answer=item[ground_truth_key]))
+            conversation = self.build_conversation_from_prompt(prompt)
+            prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer=item[ground_truth_key]))
         
         return prompts
