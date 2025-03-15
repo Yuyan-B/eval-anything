@@ -45,16 +45,21 @@
       "CEval": False,
       "mmmu": False,
       }
+    # Visualization
+    visualization:
+      enable: false
+      port: 8080
+      share: false
   # The model configurations
   model_cfgs:
     # Pretrained model unique identity
-    model_id: Llama3.1-8B-Instruct
+    model_id: Llava-1.5-7B-HF
     # Pretrained model name or path
-    model_name_or_path: meta-llama/Llama-3.1-8B-Instruct
+    model_name_or_path: /aifs4su/yaodong/models/llava-1.5-7b-hf
     # Model type ("LM" or "MM")
-    model_type: "LM"
+    model_type: "MM"
     # Chat template
-    chat_template: Llama3
+    chat_template: Llava
   infer_cfgs:
     # Inference backend
     infer_backend: "vllm"
@@ -81,9 +86,9 @@
     # Beam Search size
     num_beams: null
     # Number of GPUs
-    num_gpu: 2
+    num_gpu: 8
     # Available GPU IDs. If not specified, first num_gpu GPUs will be used.
-    gpu_ids: [0,1]
+    gpu_ids: [0,1,2,3,4,5,6,7]
     # GPU utilization
     gpu_utilization: 0.8
     

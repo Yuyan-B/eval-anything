@@ -18,7 +18,7 @@ import json
 import os
 from typing import Dict, List
 from eval_anything.utils.data_type import InferenceInput
-from eval_anything.utils.utils import pair_data_via_uuid, UUIDGenerator
+from eval_anything.utils.utils import pair_data_via_uuid
 from collections import namedtuple
 from eval_anything.utils.register import BenchmarkRegistry, MMDatasetRegistry
 from eval_anything.utils.logger import EvalLogger
@@ -29,7 +29,6 @@ class MMUndBenchmark(BaseBenchmark):
         dataset = MMDataLoader(eval_cfgs, benchmark_cfgs, self.logger)
         return dataset
 
-    # TODO
     def save_benchmark_details(self, save_path: str, benchmark_name: str, inputs: Dict[str, List[InferenceInput]], results: Dict[str, List[EvaluationResult]]):
         """Save evaluation result and config file of single benchmark.
         Args:
@@ -37,4 +36,22 @@ class MMUndBenchmark(BaseBenchmark):
             inputs (dict[str, List[InferenceInput]]): evaluation inputs
             results (dict[str, List[EvaluationResult]]): evaluation results
         """
-        pass
+        output_dir = os.path.join(save_path, benchmark_name)
+        os.makedirs(output_dir, exist_ok=True)
+        for task, input_data in inputs.items():
+            result_data = results[task]
+            details = pair_data_via_uuid(input_data, result_data)
+            save_details = []
+
+            # TODO: Save images optionally
+           
+            for input, output in details:
+                save_details.append(
+                    {
+                        "input": input.to_dict(),
+                        "output": output.to_dict()
+                    }
+                )
+            with open(os.path.join(output_dir, f"details_{task}.jsonl"), 'a', encoding='utf-8') as f:
+                for detail in save_details:
+                    f.write(json.dumps(detail, ensure_ascii=False) + '\n')

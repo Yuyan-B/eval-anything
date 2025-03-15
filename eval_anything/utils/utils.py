@@ -19,6 +19,10 @@ import platform
 import signal
 import tempfile
 import itertools 
+import base64
+import PIL
+from PIL import Image
+from io import BytesIO
 
 BENCHMARK_MODALITY_MAP = {
     'gsm8k': 'text_to_text',
@@ -85,6 +89,7 @@ class MultiChoicePromptBuilder():
         prompt += self.marge_QA(question, candidate_answers)
         if self.enable_cot:
             prompt += f"\n{self.cot_context}"
+        prompt += "Please enclose your answer in parentheses. For example, (A) or (B) or (C) or (D)."
         return prompt
     
 class MultiChoiceAutoLabelPromptBuilder():
@@ -206,14 +211,14 @@ class DialoguePromptBuilder():
         answer = f"Answer: {self.cot_context} {ground_truth}" if self.enable_cot else f"Answer: {ground_truth}"
         return prompt + answer
 
-    def build_prompt(self, input: str, ref_answer: str = "") -> str:
+    def build_prompt(self, input_question: str, ref_answer: str = "") -> str:
         context = ""
         if self.few_shot_examples:
             for question, answer in zip(self.few_shot_examples['question'], self.few_shot_examples['answer']):
                 context += self.marge_QA(question, answer) + "\n\n"
             context = context + "\n" if context else ""
 
-        question = self.marge_QA(input, ref_answer)
+        question = self.marge_QA(input_question)
         prompt = f"{context}{question}"
         return prompt
     
@@ -268,32 +273,6 @@ class CodesGenerationPromptBuilder():
             prompt += f"\n{self.cot_context}"
         return prompt
 
-
-
-class UUIDGenerator():
-    
-    def __init__(self):
-        pass
-
-    def __call__(self, data: InferenceInput) -> InferenceInput:
-        modality_dict = {modality.value: "" for modality in ModalityType}
-        
-        modality_dict = {"text": data.text}
-        for mm_data in data.mm_data:
-            modality_dict[mm_data.modality] = mm_data.url if mm_data.url else mm_data.file
-
-        uuid_dict = {}
-        for modality, content in modality_dict.items():
-            uuid_dict[modality] = self.generate_uuid(content, modality)
-        return uuid_dict
-
-    # TODO 根据data和modality生成不同模态的uuid
-    def generate_uuid(self, data: str, modality: str) -> str:
-        if modality == 'text':
-            return sha256(data.encode()).hexdigest()
-        else:
-            raise ValueError(f"Unsupported modality: {modality}")
-
 def read_cfgs_from_yaml(yaml_relative_dir: str, yaml_name: str) -> dict[str, Any]:
     current_file_path = os.path.abspath(__file__)
     parent_path = os.path.dirname(os.path.dirname(current_file_path))
@@ -303,24 +282,6 @@ def read_cfgs_from_yaml(yaml_relative_dir: str, yaml_name: str) -> dict[str, Any
             configs = yaml.safe_load(f)
         except FileNotFoundError as exc:
             raise FileNotFoundError(f'{yaml_path} error: {exc}') from exc
-    # if backend.lower() == 'vllm':
-    #     infer_cfgs_path = os.path.join(
-    #         parent_path,
-    #         'configs',
-    #         'evaluation',
-    #         'vllm',
-    #         configs['infer_cfgs']['vllm_cfgs'],
-    #     )
-    # else:
-    #     infer_cfgs_path = os.path.join(
-    #         parent_path,
-    #         'configs',
-    #         'evaluation',
-    #         'deepspeed',
-    #         configs['infer_cfgs']['ds_cfgs'],
-    #     )
-    # with open(infer_cfgs_path) as f:
-    #     infer_cfgs = json.load(f)
 
     return configs
 
@@ -411,11 +372,8 @@ def parse_unknown_args(args):
     return unknown_args
 
 def pair_data_via_uuid(inputs: list[InferenceInput], outputs: list[InferenceOutput | EvaluationResult]):
-    def get_uuid_key(item: InferenceInput):
-        uuid_key = ""
-        for modality, uuid in item.uuid.items():
-            uuid_key += f"{modality}:{uuid}"
-        return uuid_key
+    def get_uuid_key(item: Union[InferenceInput, InferenceOutput]):
+        return item.uuid
     uuid_inputs = {get_uuid_key(item): item for item in inputs}
     results = []
     for output in outputs:
@@ -441,7 +399,6 @@ def get_messages(modality, prompt):
         ],
     }
     return messages.get(modality, [])
-
 
 def get_project_root():
     current = Path(__file__).resolve()

@@ -13,6 +13,8 @@ import json
 import yaml
 from typing import Dict, List
 from collections import namedtuple
+import gradio as gr
+import pandas as pd
 
 # Third-party imports
 # from vllm.sequence import Logprob
@@ -24,7 +26,7 @@ from eval_anything.models.base_model import MODEL_MAP, CLASS_MAP
 from eval_anything.evaluate_tools.t2t_tools import *
 import eval_anything.evaluate_tools.t2t_tools as T2T_TOOLS
 from eval_anything.utils.utils import (
-    UUIDGenerator, read_cfgs_from_yaml, update_dict, 
+    read_cfgs_from_yaml, update_dict, 
     custom_cfgs_to_dict, BENCHMARK_MODALITY_MAP, pair_data_via_uuid,
     dict_to_namedtuple, namedtuple_to_dict
 )
@@ -104,14 +106,118 @@ class BaseTask(ABC):
         self.model.shutdown()
 
     def display_task_results(self, results: dict[str, dict[str, dict[str, float]]]):
-        """Display overall evaluation results in command line.
+        """Display evaluation results using both console table and Gradio interface.
         Args:
-            results (list[dict[str, dict[str, float]]]): evaluation results
+            results (dict[str, dict[str, dict[str, float]]]): evaluation results
         """
+        # Print table results
         for benchmark_name, result in results.items():
             if result != {}:
-                self.logger.print_table(title=f'Brief Report of {benchmark_name}', data=result, to_csv=True, csv_file_name=f'{benchmark_name}_brief_report.csv')
-    
+                self.logger.print_table(
+                    title=f'Brief Report of {benchmark_name}', 
+                    data=result, 
+                    to_csv=True, 
+                    csv_file_name=f'{benchmark_name}_brief_report.csv'
+                )
+        
+        # Launch visualization if enabled in config
+        if hasattr(self.eval_cfgs, 'visualization') and self.eval_cfgs.visualization.enable:
+            self._launch_visualization(results)
+
+    def _create_visualization_data(self, results_data: dict) -> pd.DataFrame:
+        """Convert results data to pandas DataFrame for visualization.
+        Args:
+            results_data (dict): evaluation results
+        Returns:
+            pd.DataFrame: formatted results data
+        """
+        dfs = []
+        for benchmark_name, result in results_data.items():
+            if result:
+                df = pd.DataFrame(result).round(4)
+                df['Benchmark'] = benchmark_name
+                df['Modality'] = self._get_modality_type()  # Get current task's modality type
+                dfs.append(df)
+        
+        if dfs:
+            return pd.concat(dfs)
+        return pd.DataFrame()
+
+    def _get_modality_type(self) -> str:
+        """Get the modality type of current task.
+        Returns:
+            str: Modality type (multimodal, text-to-text, etc.)
+        """
+        # Try to get modality type from class attribute
+        if hasattr(self, 'modality_type'):
+            return self.modality_type
+        # Infer from class name, e.g., MMUndTask -> multimodal
+        class_name = self.__class__.__name__.lower()
+        if 'mm' in class_name:
+            return 'multimodal'
+        elif 't2t' in class_name:
+            return 'text-to-text'
+        return 'unknown'
+
+    def _launch_visualization(self, results: dict):
+        """Launch Gradio interface for results visualization.
+        Args:
+            results (dict): evaluation results
+        """
+        results_df = self._create_visualization_data(results)
+        if results_df.empty:
+            self.logger.warning("No results data available for visualization")
+            return
+
+        with gr.Blocks() as demo:
+            gr.Markdown(f"# {self._get_modality_type().title()} Task Evaluation Results")
+            
+            with gr.Tab("Results Overview"):
+                gr.Dataframe(
+                    value=results_df,
+                    headers=results_df.columns.tolist(),
+                    row_count=(len(results_df), "dynamic"),
+                )
+            
+            with gr.Tab("Metrics Visualization"):
+                metric_columns = [col for col in results_df.columns 
+                                if col not in ['Benchmark', 'Modality']]
+                
+                for metric in metric_columns:
+                    if not results_df[metric].isnull().all():
+                        plot_fig = results_df.plot(
+                            kind='bar',
+                            x='Benchmark',
+                            y=metric,
+                            title=f'{metric} Across Benchmarks'
+                        ).figure
+                        gr.Plot(value=plot_fig)
+
+            with gr.Tab("Export"):
+                gr.File(
+                    value=os.path.join(self.output_path, 'evaluation_details.json'),
+                    label="Download Complete Results"
+                )
+
+        # Create visualization directory and launch interface
+        vis_path = os.path.join(self.output_path, 'visualization')
+        os.makedirs(vis_path, exist_ok=True)
+        
+        # Get visualization server settings from config
+        vis_config = self.eval_cfgs.visualization
+        server_port = vis_config.port if hasattr(vis_config, 'port') else 8080
+        share = vis_config.share if hasattr(vis_config, 'share') else False
+        
+        try:
+            demo.launch(
+                server_port=server_port,
+                server_name="0.0.0.0",
+                share=share,
+                quiet=True
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to launch visualization interface: {str(e)}")
+
     def save_task_details(self, save_path: str):
         """Save overall evaluation results, including all benchmark results.
         Args:

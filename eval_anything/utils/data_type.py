@@ -9,8 +9,8 @@ TODO 还需适配
 
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
-
+from typing import Dict, List, Optional, Union, Any
+import json
 import PIL
 import torch
 from openai.types.chat.chat_completion import ChatCompletion
@@ -20,6 +20,7 @@ from enum import Enum
 from eval_anything.evaluate_tools.t2t_tools import T2T_JUDGER_MAP
 import eval_anything.evaluate_tools.t2t_tools as T2T_TOOLS
 import numpy as np
+from eval_anything.utils.uuid import UUIDGenerator
 
 @dataclass
 class RewardModelOutput:
@@ -72,91 +73,83 @@ class MultiModalData:
 
 @dataclass
 class InferenceInput:
-    '''
+    """The input data of a completion request to the LLM.
+
     Args:
         task: The task name.
-        text: The text to be completed.
-        url: The url of the image to be completed.
-        file: The image to be completed.
-        modality: The modality of the image to be completed.
-    '''
-
-    text: str
-    mm_data: MultiModalData
-    metadata: dict = None
+        conversation: The conversation history.
+        uuid: The unique id of the input.
+        ref_answer: The ground truth answer.
+        metadata: The metadata of the input.
+    """
+    task: str
+    conversation: List[Dict]
+    uuid: str
+    ref_answer: str | dict[str, list] | List[any] | int | None
+    metadata: dict
 
     def __init__(
         self,
         task: str,
-        text: str,
-        text_id: str = None,
-        urls: List[str] | str | None = None,
-        data_files = None,
+        conversation: List[Dict[str, str]],
         ref_answer: str | dict[str, list] | List[any] | int | None = None,
-        uuid: Dict[str, str] = None,
         metadata: dict = None
     ):
         self.task = task
-        self.text = text
-        self.text_id = text_id
-        self.uuid = uuid or {}
+        self.conversation = conversation
         self.ref_answer = ref_answer    # ground_truth
         self.metadata = metadata or {}  # Store benchmark-specific data
 
-        # FIXME: Decide data structure of urls
-        if isinstance(urls, str):
-            urls = [urls]
-        urls = urls or []
+        self.uuid_generator = UUIDGenerator()
+        self.uuid = self.uuid_generator({
+            "task": self.task,
+            "conversation": self.conversation
+        })
 
-        # FIXME: Decide data structure of data_files
-        if data_files is None:
-            data_files = [None] * len(urls)
-        elif isinstance(data_files, (str, bytes, PIL.Image.Image)):
-            data_files = [data_files]
-
-        # Create MultiModalData objects
-        # FIXME: mm_data: List[MultiModalData] or MultiModalData ?
-        self.mm_data = [MultiModalData(url, file) for url, file in zip(urls, data_files)]
-
+    def __str__(self):
+        return json.dumps({
+            "task": self.task,
+            "conversation": self.conversation
+        }, ensure_ascii=False, indent=4)
+        
     def __repr__(self):
-        return f'InferenceInput(' f'text={self.text!r}),' f'mm_data={self.mm_data!r})'
+        return self.__str__()
+    
+    def __eq__(self, other):
+        if not isinstance(other, InferenceInput):
+            return False
+        return self.uuid == other.uuid
 
     def to_dict(self):
         return {
             "task": self.task,
-            "text": self.text,
-            "urls": [mm_data.url for mm_data in self.mm_data],
-            "ref_answer": self.ref_answer,
+            "conversation": self.conversation,
             "uuid": self.uuid,
-            "metadata": self.metadata
+            "ref_answer": self.ref_answer,
         }
-
 
 @dataclass
 class InferenceOutput:
     """The output data of a completion request to the LLM.
 
     Args:
-        engine: The inference engine used. \\
-        prompt: The prompt string of the request. \\
-        prompt_token_ids: The token IDs of the prompt string. \\
-        prompt_logprobs: The logprobs of the prompt string. \\
-        response: The response string of the request. \\
-        response_token_ids: The token IDs of the response string. \\
+        task: The task name.
+        uuid: The unique id of the input.
+        engine: The inference engine used.
+        response: The response string of the request.
+        response_token_ids: The token IDs of the response string.
         response_logprobs: The logprobs of the response string.
-
-    TODO 还需适配
+        raw_output: The raw output data of the request.
+        mm_data: The multi-modal data of the request.
     """
     task: str    
+    uuid: str
     engine: str
-    prompt: str
     response: str
     response_token_ids: Optional[List[int]]
     response_logprobs: Optional[PromptLogprobs] | dict[str, list]
     raw_output: Optional[Union[RequestOutput, None]]
-    mm_input_data: List[MultiModalData]
-    mm_output_data: List[MultiModalData]
-    uuid: Dict[str, str]
+    mm_data: List[MultiModalData] # TODO: left for mm-generation task
 
     def __post_init__(self):
         pass
@@ -164,8 +157,7 @@ class InferenceOutput:
     def __init__(
         self,
         task: str,
-        uuid: Dict[str, str],   # {modality: uuid}
-        prompt: str,
+        uuid: str,
         response: str,
         engine: str = 'hand',
         response_token_ids: Optional[List[int]] = None,
@@ -175,7 +167,6 @@ class InferenceOutput:
         self.engine = engine
         self.task = task
         self.uuid = uuid
-        self.prompt = prompt
         self.response = response
         self.response_token_ids = response_token_ids
         self.response_logprobs = response_logprobs
@@ -183,13 +174,12 @@ class InferenceOutput:
 
     @classmethod
     def from_vllm_output(
-        cls, task, uuid, prompt, vllm_output: RequestOutput, store_raw: bool = False
+        cls, task, uuid, vllm_output: RequestOutput, store_raw: bool = False
     ):
         return cls(
             engine='vllm',
             task=task,
             uuid=uuid,
-            prompt=prompt,
             response=[output.text for output in vllm_output.outputs],
             response_token_ids=[output.token_ids for output in vllm_output.outputs],
             response_logprobs=[output.logprobs for output in vllm_output.outputs],

@@ -9,7 +9,6 @@ from transformers import AutoTokenizer
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.register import TemplateRegistry
 from eval_anything.models.base_model import BaseModel
-from eval_anything.utils.utils import get_messages
 import os
 
 class vllmLM(BaseModel):
@@ -68,35 +67,35 @@ class vllmLM(BaseModel):
             else:
                 print("Warning: tokenizer does not support adding special tokens")
 
+    def _build_conversation_from_template(self, input_list: List[InferenceInput]) -> List[InferenceInput]:
+        if self.template:
+            for input in input_list:
+                input.conversation = [
+                    {"role": "system", "content": self.template.system_prompt},
+                    *input.conversation,
+                    {"role": "assistant", "content": self.template.assistant_prompt.format(output='')}
+                ]
+        return input_list
+
     def generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]:
         return self._generation(inputs)
 
     def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
-        if self.template:
-            prompts = [
-                self.template.system_prompt
-                + self.template.user_prompt.format(input=input.text)
-                + self.template.assistant_prompt.format(output='')
-                for input in input_list
-            ]
-        else:
-            self.modality = 't2t'
-            input_ids = self.tokenizer.apply_chat_template(
-                [get_messages(self.modality, input.text) for input in input_list],
-                padding=True,
-                add_generation_prompt=True,
-                return_tensors="pt"
-            )
-            prompts = [
-                self.tokenizer.decode(input_id, skip_special_tokens=True)
-                for input_id in input_ids
-            ]
+        input_list = self._build_conversation_from_template(input_list)
+        
+        prompts = self.tokenizer.apply_chat_template(
+            [input.conversation for input in input_list],
+            padding=True,
+            add_generation_prompt=True,
+            tokenize=False,
+            return_tensors="pt"
+        )
 
         outputs = self.model.generate(
             prompts=prompts, sampling_params=self.samplingparams
         )
         inference_outputs = [
-            InferenceOutput.from_vllm_output(task=input.task, uuid=input.uuid, prompt=input.text, vllm_output=output, store_raw=True)
+            InferenceOutput.from_vllm_output(task=input.task, uuid=input.uuid, vllm_output=output, store_raw=True)
             for input, output in zip(input_list, outputs)
         ]
 
