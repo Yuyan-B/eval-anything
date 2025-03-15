@@ -15,55 +15,87 @@ class ImageManager:
     """
     Convert between any multi-modal data (image, audio, video, etc.) and base64 string.
     """
-    def __init__(self):
-        pass
 
-    def decode_base64_to_image(self, base64_string: str) -> Image.Image:
-        """Decode base64 string to PIL Image object"""
-        # Remove data URI prefix if present
-        if base64_string.startswith("data:image/"):
-            base64_data = base64_string.split(",", 1)[1]
-        else:
-            base64_data = base64_string
-    
-        # Decode base64 to bytes and convert to Image
-        return Image.open(BytesIO(base64.b64decode(base64_data)))
-
-
-    def encode_image_to_base64(image: Union[str, "PIL.Image"]) -> str:
-        """Get base64 from image"""
-        if isinstance(image, str):
-            image_input = Image.open(image)
-        else:
-            image_input = image
+    @classmethod
+    def decode_base64_to_image(cls, base64_string: str) -> Image.Image:
+        """Decode base64 string to PIL Image object and ensure consistent format"""
+        try:
+            # Remove data URI prefix if present
+            if base64_string.startswith("data:image/"):
+                base64_data = base64_string.split(",", 1)[1]
+            else:
+                base64_data = base64_string
         
-        if image_input.mode != "RGB":
-            image_input = image_input.convert("RGB")
+            # Decode base64 to bytes and convert to Image
+            image = Image.open(BytesIO(base64.b64decode(base64_data)))
+            
+            # Convert to RGB/RGBA based on whether transparency is needed
+            if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
+                return image.convert('RGBA')
+            return image.convert('RGB')
+            
+        except Exception as e:
+            raise ValueError(f"Failed to decode base64 image: {str(e)}")
 
-        buffer = BytesIO()
-        image_input.save(buffer, format="JPEG")
-        img_bytes = buffer.getvalue()
-        base64_data = base64.b64encode(img_bytes).decode("utf-8")
-        return base64_data
-    
-    def extract_images_from_conversation(self, conversation: List[Dict]) -> List[Image.Image]:
-        """Extract all images from the conversation"""
+    @classmethod
+    def encode_image_to_base64(cls, image: Union[str, "PIL.Image"]) -> str:
+        """Convert image to base64 string with consistent format"""
+        try:
+            if isinstance(image, str):
+                image_input = Image.open(image)
+            else:
+                image_input = image
+            
+            # Determine if image needs transparency
+            if image_input.mode == 'RGBA' and cls._has_transparency(image_input):
+                buffer = BytesIO()
+                image_input.save(buffer, format="PNG")  # Use PNG for images with transparency
+            else:
+                image_input = image_input.convert("RGB")
+                buffer = BytesIO()
+                image_input.save(buffer, format="JPEG", quality=95)
+            
+            img_bytes = buffer.getvalue()
+            base64_data = base64.b64encode(img_bytes).decode("utf-8")
+            return base64_data
+            
+        except Exception as e:
+            raise ValueError(f"Failed to encode image to base64: {str(e)}")
+
+    @classmethod
+    def _has_transparency(cls, image: Image.Image) -> bool:
+        """Check if image has any transparent pixels"""
+        if image.mode == 'RGBA':
+            extrema = image.getextrema()
+            if len(extrema) >= 4:  # Make sure we have alpha channel
+                alpha_min, alpha_max = extrema[3]
+                return alpha_min < 255
+        return False
+
+    @classmethod
+    def extract_images_from_conversation(cls, conversation: List[Dict]) -> List[Image.Image]:
+        """Extract all images from the conversation with consistent format"""
         images = []
     
         for message in conversation:
             content = message.get('content', '')
-            if isinstance(content, str):
-                pass
-
-            elif isinstance(content, list):
+            if isinstance(content, list):
                 for item in content:
-                    if 'image' in item:
-                        images.append(self.decode_base64_to_image(item['image']))
-                    elif 'image_url' in item:
-                        images.append(self.decode_base64_to_image(item['image_url']))
+                    try:
+                        if 'image' in item:
+                            image = cls.decode_base64_to_image(item['image'])
+                            images.append(image)
+                        elif 'image_url' in item:
+                            image = cls.decode_base64_to_image(item['image_url'])
+                            images.append(image)
+                    except Exception as e:
+                        print(f"Warning: Failed to process image in conversation: {str(e)}")
+                        continue
         return images
 
+    @classmethod
     def prompt_to_conversation(
+            cls,  
             user_prompt: str, 
             system_prompt: Union[str, None] = None, 
             images: Union[List[PIL.Image], List[str]] = []
@@ -101,7 +133,7 @@ class ImageManager:
             for i, match in enumerate(matches):
                 content_parts.append({
                     "type": "image",
-                    "image": f"data:image/jpeg;base64,{ImageManager.encode_image_to_base64(images[i])}"
+                    "image": f"data:image/jpeg;base64,{cls.encode_image_to_base64(images[i])}"  # Use cls
                 })
                 
                 text_start = match.end()

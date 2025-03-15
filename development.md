@@ -17,6 +17,10 @@
 
 - `eval_anything/dataloader/t2t_dataloader.py`: 继承自`base_dataloader.py`中的`BaseDataLoader`基类，实现评测数据的读取、拼接等操作
 
+- `eval_anything/dataloader/mm_dataloader.py`: 继承自`base_dataloder.py`中的`BaseDataLoader`基类，实现评测数据的读取、拼接等操作
+
+- `eval_anything/dataloader/format_mm_dataset.py`: 鉴于多模态数据集的数据复杂度较高，在此实现原数据集的预处理，以便后续数据加载
+
 ### inference相关
 
 - `eval_anything/models`: 文件夹下实现了不同backend的infer
@@ -39,6 +43,8 @@
 
 - `logger.py`: 实现了log机制的开发
 
+- `mm_data_manager`: 实现了各类模态数据的格式转换与conversation编制
+
 ## 开发指南
 
 1. 在`benchmarks`文件夹下进行相关文件夹创建
@@ -48,6 +54,12 @@
 3. 在`eval_anything/configs/evaluate.yaml`文件夹下进行评测任务配置
 4. 运行`eval_anything/scripts/run.sh`进行测试
 
+## any2t开发指南
+1. 在`dataloader/format_mm_dataset.py`中注册数据集
+2. 在`dataloader/format_mm_dataset.py`中处理benchmark-specific的键值对和Prompt构造，以便完成数据加载。尽量使用已有的PromptBuilder，如有需要，请在`_to_InferenceInput`方法中定制
+3. 运用`utils/mm_data_manager.py`中的工具类实现图片、音频、视频向`base64`的转换，以便嵌入到conversation中
+4. 运用`utils/mm_data_manager.py`中的工具类为此模态任务定制conversation的形式，例如，`ImageManager.prompt_to_conversation`实现了常见图文输入的conversation构造
+5. 数据加载完成后，推理与评测部分与此前开发过程相同
 
 ## Tips
 

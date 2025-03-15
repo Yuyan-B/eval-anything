@@ -13,7 +13,7 @@ T2T_EXTRACTOR_MAP = {
     "regex_match_multi_letter": "RegexMatchMultiLetter",
     "regex_match_code": "RegexMatchCode",
     "regex_match_math": "RegexMatchMath",
-    "regex_match_open": "RegexMatchOpen",
+    "regex_match_multi_open": "RegexMatchMultiOpen",
 }
 
 T2T_JUDGER_MAP = {
@@ -112,32 +112,40 @@ class JudgeEqualList(BaseTool):
         """Compare model answer list with ground truth
         
         Args:
-            data_1: Model answer list (will be converted to strings)
-            data_2: Ground truth (kept as original type)
+            data_1: Model answer list
+            data_2: Ground truth (str representing float, list of str, or str)
             
         Returns:
-            bool: True if ground truth matches any answer in model's list
+            bool: True if any ground truth matches any answer in model's list
         """
         if data_1 is None:
             return False
-
-        # Convert all elements in data_1 to strings
-        print("data_1", data_1)
-        print("data_2", data_2)
-        str_data_1 = []
-        for item in data_1:
-            if isinstance(item, (int, float)):
-                # For numbers, preserve exact representation
-                str_data_1.append(f"{item}")
-            elif item is None:
-                str_data_1.append("")
-            else:
-                str_data_1.append(str(item))
-
-        # Convert data_2 to string for comparison
-        str_data_2 = str(data_2)
         
-        return str_data_2 in str_data_1
+        try:
+            gold_answer = eval(data_2)
+        except:
+            gold_answer = data_2
+
+        if isinstance(gold_answer, list):
+            correct = False
+            for gold_answer_i in gold_answer:
+                for pred_answer in data_1:
+                    if isinstance(pred_answer, str):
+                        if isinstance(gold_answer_i, str):
+                            if gold_answer_i in pred_answer:
+                                correct = True
+                                break
+                    else:
+                        try:
+                            gold_answer_i = float(gold_answer_i)
+                        except:
+                            gold_answer_i = gold_answer_i
+                        if gold_answer_i == pred_answer:
+                            correct = True
+                            break
+            return correct
+        else:
+            return gold_answer in data_1
 
     def __call__(self, data_1, data_2) -> bool:
         return self.apply(data_1, data_2)
@@ -240,49 +248,39 @@ class RegexMatchCode(RegexMatch):
         matches = [match_text(item) for item in data]
         return matches
 
-class RegexMatchOpen(RegexMatch):
+class RegexMatchMultiOpen(RegexMatch):
+    """
+    Handle multi-choice and open-ended mixed tasks.
+    """
     def __init__(self, additional_pattern: str = None, match_index: int = None):
         super().__init__(additional_pattern, match_index)
-        self.letter_pattern = r"\(([A-Za-z])\)"
+        self.letter_pattern = r"\b([A-D])\b|\((?P<letter>[A-D])\)"
         self.indicators_of_keys = [
             'could be ', 'so ', 'is ',
             'thus ', 'therefore ', 'final ', 
             'answer ', 'result '
         ]
 
-    def _match_letter(self, text: str) -> Optional[str]:
-        """Match letter in parentheses, handling match_index properly
-        
+    def _match_letter(self, text: str):
+        """Match the last uppercase letter in the string, either in parentheses or standalone.
+    
         Args:
             text (str): Input text
-            
+            match_index (int): Index of the matched letter
         Returns:
             Optional[str]: Matched letter (uppercase) or None
-            When match_index is -1, returns the last matched letter
-            When match_index is None or 0, returns the first matched letter
-            When match_index is positive, returns the letter at that position if exists
         """
         try:
             pattern = re.compile(self.letter_pattern, re.IGNORECASE)
             matches = list(pattern.finditer(text))
-            
+        
             if not matches:
                 return None
-                
-            if self.match_index is not None:
-                # Handle negative index (e.g., -1 for last match)
-                if self.match_index < 0:
-                    index = len(matches) + self.match_index
-                else:
-                    index = self.match_index
-                    
-                # Check if index is valid
-                if 0 <= index < len(matches):
-                    return matches[index].group(1).upper()
-                return None
-            else:
-                # When no match_index specified, use the first match
-                return matches[0].group(1).upper()
+        
+            selected_match = matches[self.match_index]
+            if selected_match.group('letter'):
+                return selected_match.group('letter').upper()  # From parentheses
+            return selected_match.group(1).upper()  # Standalone letter
                 
         except (IndexError, AttributeError, TypeError):
             return None
@@ -392,7 +390,6 @@ class RegexMatchOpen(RegexMatch):
             
             return [process_single_response(response) for response in data]
         except Exception as e:
-            # Log error if needed
             print(f"Error processing responses: {e}")
             return None
 
