@@ -83,17 +83,13 @@ class vllmLM(BaseModel):
     def _generation(self, input_list: List[InferenceInput]) -> Dict[str, List[InferenceOutput]]:
         input_list = self._build_conversation_from_template(input_list)
         
-        prompts_token_ids = self.tokenizer.apply_chat_template(
+        prompts = self.tokenizer.apply_chat_template(
             [input.conversation for input in input_list],
             padding=True,
             add_generation_prompt=True,
+            tokenize=False,
             return_tensors="pt"
         )
-       
-        prompts = [
-            self.tokenizer.decode(prompt_token_id, skip_special_tokens=True)
-            for prompt_token_id in prompts_token_ids
-        ]
 
         outputs = self.model.generate(
             prompts=prompts, sampling_params=self.samplingparams

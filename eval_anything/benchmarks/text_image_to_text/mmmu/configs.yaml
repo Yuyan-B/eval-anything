@@ -28,7 +28,7 @@ task_defaults: &task_defaults
   question_key: question
   answer_key: options
   ground_truth_key: answer
-  candidate_labels: ["A", "B", "C", "D"]
+  candidate_labels: ["A", "B", "C", "D", "E"]
   avalable_evaluate_tools: ["match_multi-choice_and_open-ended"]
 task: 
   - name: Accounting

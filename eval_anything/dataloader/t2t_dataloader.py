@@ -34,10 +34,6 @@ class T2TDataLoader(BaseDataLoader):
         """
         conversation = [
             {
-                "role": "system",
-                "content": "You are a helpful assistant."
-            },
-            {
                 "role": "user",
                 "content": prompt
             }
@@ -58,7 +54,7 @@ class T2TDataLoader(BaseDataLoader):
         ground_truth_key = task.ground_truth_key
 
         for item in data:
-            prompt = prompt_builder.build_prompt(item[question_key], item[answer_key])
+            prompt = prompt_builder.build_prompt(item[question_key], item, question_key, answer_key, ground_truth_key)
             conversation = self.build_conversation_from_prompt(prompt)
             prompts.append(InferenceInput(task=task.name, conversation=conversation, ref_answer=item[ground_truth_key]))
         
