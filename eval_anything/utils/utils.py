@@ -28,6 +28,10 @@ BENCHMARK_MODALITY_MAP = {
     'gsm8k': 'text_to_text',
     'mmlu': 'text_to_text',
     'truthfulqa': 'text_to_text',
+    'arc': 'text_to_text',
+    'cmmlu': 'text_to_text',
+    'mmlupro': 'text_to_text',
+    'ceval': 'text_to_text',
     'humaneval': 'text_to_text',
     'agieval': 'text_to_text',
     'beavertails': 'text_to_text',
@@ -57,18 +61,29 @@ class MultiChoicePromptBuilder():
 
         return prompt + answer + "\n"
 
-    def build_prompt(self, question: str, candidate_answers: list[str]) -> str:
+    def build_prompt(self, question: str, data_item: dict, question_key: str = "question", answer_key: Union[tuple, list, str] = "choices", ground_truth_key: str = "answer") -> str:
         prompt = ""
 
         if self.few_shot_examples:
             # Add few-shot examples
             prompt += "The following are multiple choice questions with answers.\n"
-            for q, c, a in zip(self.few_shot_examples['question'], 
-                             self.few_shot_examples['choices'],
-                             self.few_shot_examples['answer']):
-                prompt += self.marge_QA(q, c, str(a))
+            for q, c, a in zip(self.few_shot_examples[question_key], 
+                            self.few_shot_examples[answer_key],
+                            self.few_shot_examples[ground_truth_key]):
+                prompt += self.marge_QA(q, c, str(a)) + "\n"
 
         prompt += f"{self.multi_choice_prompt}\n\n"
+
+        if isinstance(answer_key, tuple):
+            answer_key = answer_key._asdict()
+            value = data_item
+            for key in answer_key.keys():
+                value = value[key]
+            candidate_answers = value
+        elif isinstance(answer_key, list):
+            candidate_answers = [data_item[answer_key_single] for answer_key_single in answer_key]
+        else:
+            candidate_answers = data_item[answer_key]
 
         # Add the current question
         prompt += self.marge_QA(question, candidate_answers)
@@ -140,17 +155,45 @@ class MultiChoicePromptChineseBuilder():
 
         return prompt + answer + "\n"
 
-    def build_prompt(self, question: str, candidate_answers: list[str]) -> str:
+    def build_prompt(self, question: str, data_item: dict, question_key: str = "question", answer_key: Union[tuple, list, str] = "choices", ground_truth_key: str = "answer") -> str:
         prompt = ""
 
         if self.few_shot_examples:
             prompt += "以下是带答案的多项选择题。\n"
-            for q, c, a in zip(self.few_shot_examples['question'], 
-                             self.few_shot_examples['choices'],
-                             self.few_shot_examples['answer']):
-                prompt += self.marge_QA(q, c, str(a))
+            if isinstance(answer_key, tuple):
+                answer_key = answer_key._asdict()
+                answer_key_keys = list(answer_key.keys())
+                for q, data_item, a in zip(self.few_shot_examples[question_key], 
+                                self.few_shot_examples[answer_key_keys[0]],
+                                self.few_shot_examples[ground_truth_key]):
+                    value = data_item
+                    for key in answer_key_keys[1:]:
+                        value = value[key]
+                    prompt += self.marge_QA(q, value, str(a))
+            elif isinstance(answer_key, list):
+                columns = [self.few_shot_examples[key] for key in answer_key]
+                for q, *answers, a in zip(self.few_shot_examples[question_key],
+                                *columns,
+                                self.few_shot_examples[ground_truth_key]):
+                    prompt += self.marge_QA(q, answers, str(a))
+            else:
+                for q, c, a in zip(self.few_shot_examples[question_key], 
+                                self.few_shot_examples[answer_key],
+                                self.few_shot_examples[ground_truth_key]):
+                    prompt += self.marge_QA(q, c, str(a))
 
         prompt += f"{self.multi_choice_prompt}\n\n"
+
+        if isinstance(answer_key, tuple):
+            answer_key = answer_key._asdict()
+            value = data_item
+            for key in answer_key.keys():
+                value = value[key]
+            candidate_answers = value
+        elif isinstance(answer_key, list):
+            candidate_answers = [data_item[answer_key_single] for answer_key_single in answer_key]
+        else:
+            candidate_answers = data_item[answer_key]
 
         prompt += self.marge_QA(question, candidate_answers)
         if self.enable_cot:

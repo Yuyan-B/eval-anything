@@ -56,6 +56,7 @@ class T2TDataLoader(BaseDataLoader):
         question_key = task.question_key
         answer_key = task.answer_key
         ground_truth_key = task.ground_truth_key
+
         for item in data:
             prompt = prompt_builder.build_prompt(item[question_key], item[answer_key])
             conversation = self.build_conversation_from_prompt(prompt)
@@ -93,6 +94,7 @@ class T2TDataLoader(BaseDataLoader):
         question_key = task.question_key
         answer_key = task.answer_key
         ground_truth_key = task.ground_truth_key
+
         for item in data:
             prompt = prompt_builder.build_prompt(item[question_key], item[answer_key])
             conversation = self.build_conversation_from_prompt(prompt)
