@@ -252,9 +252,9 @@ class RegexMatchMultiOpen(RegexMatch):
     """
     Handle multi-choice and open-ended mixed tasks.
     """
-    def __init__(self, additional_pattern: str = None, match_index: int = None):
+    def __init__(self, additional_pattern: str = None, match_index: int = None, letter_pattern: str = None):
         super().__init__(additional_pattern, match_index)
-        self.letter_pattern = r"\b([A-D])\b|\((?P<letter>[A-D])\)"
+        self.letter_pattern = letter_pattern if letter_pattern else r"\b([A-D])\b|\((?P<letter>[A-D])\)"
         self.indicators_of_keys = [
             'could be ', 'so ', 'is ',
             'thus ', 'therefore ', 'final ', 
