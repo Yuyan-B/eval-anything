@@ -14,10 +14,56 @@
 # ==============================================================================
 """The eval anything project."""
 
+from typing import Dict, Tuple
+
 __version__ = '0.0.1.dev0'
 __license__ = 'Apache License, Version 2.0'
 __author__ = 'PKU-Alignment Team'
 __release__ = False
+
+def get_version_info() -> Dict[str, str]:
+    """Get detailed version information.
+
+    Returns:
+        Dict containing version, license, author and status information.
+    """
+    return {
+        'version': __version__,
+        'license': __license__,
+        'author': __author__,
+        'status': 'release' if __release__ else 'development'
+    }
+
+def parse_version() -> Tuple[int, ...]:
+    """Parse version string into tuple of integers.
+
+    Returns:
+        Tuple of version numbers (major, minor, patch).
+    """
+    # Remove development suffix if present
+    version = __version__.split('.dev')[0]
+
+    # Remove beta/alpha suffix if present
+    for suffix in ['b', 'a', 'rc']:
+        if suffix in version:
+            version = version.split(suffix)[0]
+            break
+
+    # Split version string and convert to integers
+    try:
+        return tuple(map(int, version.split('.')))
+    except ValueError as e:
+        print(f"Failed to parse version number: {version}")
+        return (0, 0, 0)
+
+def get_version_string() -> str:
+    """Get formatted version string with status.
+
+    Returns:
+        Formatted version string.
+    """
+    status = "Release" if __release__ else "Development"
+    return f"{__version__} ({status})"
 
 if not __release__:
     import os
@@ -49,3 +95,16 @@ if not __release__:
         pass
 
     del os, subprocess
+
+def check_version_compatibility(required_version: str) -> bool:
+    """Check if current version meets the required version.
+
+    Args:
+        required_version: Minimum required version string.
+
+    Returns:
+        bool: True if current version meets requirement.
+    """
+    current = parse_version()
+    required = tuple(map(int, required_version.split('.')))
+    return current >= required[:len(current)]

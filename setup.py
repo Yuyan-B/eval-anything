@@ -47,6 +47,11 @@ try:
     setup(
         name='eval_anything',
         version=version.__version__,
+        entry_points={
+            'console_scripts': [
+                'eval-anything-cli = eval_anything.cli:main',
+            ],
+        },
     )
 finally:
     if VERSION_CONTENT is not None:
