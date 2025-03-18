@@ -164,3 +164,6 @@ ignore = [
     # use alias for import convention (e.g., `import torch.nn as nn`)
     "PLR0402",
 ]
+
+[project.scripts]
+eval-anything-cli = "eval_anything.cli:main"
