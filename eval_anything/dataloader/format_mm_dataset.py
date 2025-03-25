@@ -102,3 +102,49 @@ class MMMUDataset(BaseMMDataset):
                 )
             )
         return inference_inputs
+    
+@MMDatasetRegistry.register("mathvision")
+class mathvisionDataset(BaseMMDataset):
+    def __init__(self, bench_cfgs: namedtuple, task: namedtuple, enable_cot: bool, num_shot: int):
+        super().__init__(bench_cfgs, task, enable_cot, num_shot)
+
+
+    def set_few_shot_examples(self, few_shot_dataset: Dataset | None):
+        raise NotImplementedError("mathvision does not support few-shot learning.")
+
+    # refer: https://github.com/mathllm/MATH-V/blob/main/models/Qwen-VL.py#L19
+    def _to_InferenceInput(self, dataset: Dataset) -> List["InferenceInput"]:
+        """
+        Convert a dataset to a list of InferenceInput objects.
+        
+        Args:
+            dataset: Dataset object containing questions, options, and images
+            
+        Returns:
+            List of InferenceInput objects ready for model inference
+        """
+        inference_inputs = []
+        
+        
+        for item in dataset:
+            question = item['question']
+            options = ''
+            if len(item['options']) > 0:
+                assert len(item['options']) == 5, item
+                if ''.join(item['options']) != 'ABCDE':
+                    options = f"(A) {item['options'][0]}\n(B) {item['options'][1]}\n(C) {item['options'][2]}\n(D) {item['options'][3]}\n(E) {item['options'][4]}\n"
+            # input = f"{question}\n{options}\nAnswer the question using a single word or phrase."
+            formatted_prompt = 'Please solve the problem step by step and put your answer in one "\\boxed{}". If it is a multiple choice question, only one letter is allowed in the "\\boxed{}".\n'+f"{question}\n{options}"
+            formatted_prompt = formatted_prompt + "<image 1>" # to fullfill the requirement of the function  prompt_to_conversation
+            images = [item['decoded_image']] # this benchmark will only use one image for one question
+            
+            conversation = ImageManager.prompt_to_conversation(user_prompt=formatted_prompt, images=images)
+
+            inference_inputs.append(
+                InferenceInput(
+                    task=self.task.name,
+                    conversation=conversation,
+                    ref_answer=item['answer']
+                )
+            )
+        return inference_inputs
