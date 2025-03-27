@@ -242,8 +242,6 @@ class JudgeLatexEqual(BaseTool):
             if gt_asw == asw:
                 return True
 
-            
-
             try:
                 # Convert LaTeX format to a sympy expression and evaluate both expressions.
                 # If the evaluated results are close enough (up to 2 decimal places), return True.
@@ -514,8 +512,6 @@ class RegexMatchLatexMath(RegexMatch):
     def __init__(self, additional_pattern: str = None, match_index: int = None, letter_pattern: str = None):
         super().__init__(additional_pattern, match_index)
 
-
-
     def apply(self, data: Union[List, Iterable]) -> Union[List, None]:
         """Process responses with both letter matching and open-ended analysis"""
         def _fix_fracs(string):
@@ -622,41 +618,32 @@ class RegexMatchLatexMath(RegexMatch):
             return new_string
 
         def _strip_string(string):
-            # Remove linebreaks
-            string = string.replace("\n", "")
+            # Remove linebreaks and special characters
+            string = string.replace("\n", "").replace("\\!", "")
 
-            # Remove inverse spaces
-            string = string.replace("\\!", "")
+            # Replace double backslashes and unify fractions
+            string = string.replace("\\\\", "\\").replace("tfrac", "frac").replace("dfrac", "frac")
 
-            # Replace double backslashes with a single backslash
-            string = string.replace("\\\\", "\\")
+            # Remove LaTeX commands
+            replacements = [
+                ("\\left", ""), 
+                ("\\right", ""),
+                ("^{\\circ}", ""),
+                ("^\\circ", ""),
+                ("\\$", ""),
+                ("$", ""),
+                ("\\%", ""),
+                ("\%", "")
+            ]
+            for old, new in replacements:
+                string = string.replace(old, new)
 
-            # Replace tfrac and dfrac with frac
-            string = string.replace("tfrac", "frac")
-            string = string.replace("dfrac", "frac")
-
-            # Remove \left and \right LaTeX commands
-            string = string.replace("\\left", "")
-            string = string.replace("\\right", "")
-
-            # Remove degree notation
-            string = string.replace("^{\\circ}", "")
-            string = string.replace("^\\circ", "")
-
-            # Remove dollar signs (potentially used for inline math in LaTeX)
-            string = string.replace("\\$", "")
-            string = string.replace("$", "")
-
-            # Remove units (assumed to be on the right). Note: The function _remove_right_units is not provided.
+            # Remove units
             string = _remove_right_units(string)
-
-            # Remove percentage notations
-            string = string.replace("\\%", "")
-            string = string.replace("\%", "")
-
+            
             # Handle floating numbers starting with "."
-            string = string.replace(" .", " 0.")
-            string = string.replace("{.", "{0.")
+            string = string.replace(" .", " 0.").replace("{.", "{0.")
+            
             if len(string) == 0:
                 return string
             if string[0] == ".":
@@ -714,10 +701,7 @@ class RegexMatchLatexMath(RegexMatch):
             ans = ans.replace("\\left", "").replace('\\right', '').replace("^{\\circ}", "")
             ans = ans.replace("^\\circ", "").replace("{m}^3", "").replace("m^3", "")
             ans = ans.replace("{units}", "").replace("units", "").replace("{km}", "").replace("km", "")
-
             return _strip_string(ans)         
-        
-
         
         try:
             def process_single_response(response: str) -> List:

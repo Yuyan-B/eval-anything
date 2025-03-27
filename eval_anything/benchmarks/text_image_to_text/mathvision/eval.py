@@ -23,8 +23,6 @@ class mathvisionBenchmark(MMUndBenchmark):
         self.benchmark_name = "mathvision"
         self.benchmark_cfgs = self.get_benchmark_cfgs(self.benchmark_name)
 
-
-
     def run(self, 
             task_list: list[str],) -> tuple[dict[str, list[EvaluationResult]], dict[str, dict[str, float]], dict[str, dict[str, float]]]:
         """Run benchmark

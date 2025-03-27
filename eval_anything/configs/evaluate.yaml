@@ -52,24 +52,24 @@
     visualization:
       enable: false
       port: 8080
-      share: falsenum_gpu
+      share: false
   # The model configurations
   model_cfgs:
     # Pretrained model unique identity
-    model_id: Qwen/Qwen2.5-VL-72B-Instruct
+    model_id: Llava-1.5-7B-HF
     # Pretrained model name or path  Qwen/Qwen2.5-VL-7B-Instruct  /aifs4su/yaodong/models/llava-1.5-7b-hf
-    model_name_or_path: Qwen/Qwen2.5-VL-72B-Instruct
+    model_name_or_path: /aifs4su/yaodong/models/llava-1.5-7b-hf
     # Model type ("LM" or "MM")
     model_type: "MM"
     # Chat template
-    chat_template: Qwen2-VL
+    chat_template: Llava
   infer_cfgs:
     # Inference backend
     infer_backend: "vllm"
     # Whether to trust remote code
     trust_remote_code: True
     # The max token length
-    model_max_length: 1024
+    model_max_length: 2048
     # The max new tokens
     max_new_tokens: 512
     # The number of Output
@@ -77,7 +77,7 @@
     # Top-K
     top_k: 50
     # Top-P
-    top_p: 0.001
+    top_p: 0.95
     # Temperature
     temperature: 0.1
     # Prompt Logprobs
@@ -93,5 +93,5 @@
     # Available GPU IDs. If not specified, first num_gpu GPUs will be used.
     gpu_ids: [0,1,2,3,4,5,6,7]
     # GPU utilization
-    gpu_utilization: 0.5
+    gpu_utilization: 0.8
     
