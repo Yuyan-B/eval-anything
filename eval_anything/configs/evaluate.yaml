@@ -57,7 +57,7 @@
   model_cfgs:
     # Pretrained model unique identity
     model_id: Llava-1.5-7B-HF
-    # Pretrained model name or path  Qwen/Qwen2.5-VL-7B-Instruct  /aifs4su/yaodong/models/llava-1.5-7b-hf
+    # Pretrained model name or path
     model_name_or_path: /aifs4su/yaodong/models/llava-1.5-7b-hf
     # Model type ("LM" or "MM")
     model_type: "MM"
@@ -79,7 +79,7 @@
     # Top-P
     top_p: 0.95
     # Temperature
-    temperature: 0.1
+    temperature: 0.
     # Prompt Logprobs
     prompt_logprobs: 0
     # Logprobs

@@ -180,29 +180,22 @@ class JudgeLatexEqual(BaseTool):
             Note:
                 This function relies on the latex2sympy function which is assumed to be defined elsewhere in the code.
             """
-            # Split the string by commas to get individual elements
             sl = s[1:-1].split(',')
             
             try:
-                # Check if string is a tuple representation and has more than one element
                 if s[0] == '(' and s[-1] == ')' and len(sl) > 1:
-                    # Evaluate each element using latex2sympy and round the result to 2 decimal places
-                    # Skip evaluation if element is 'infty', 'a', or '-a'
                     s = ','.join([str(round(eval(str(latex2sympy(sub))),2)) 
                                   if 'infty' not in sub and sub not in ['a', '-a'] else sub for sub in sl])
                     return f"({s})"
                 
-                # Check if string is a list representation and has more than one element
                 elif s[0] == '[' and s[-1] == ']' and len(sl) > 1:
-                    # Same evaluation process as for tuples
                     s = ','.join([str(round(eval(str(latex2sympy(sub))),2)) 
                                   if 'infty' not in sub and sub not in ['a', '-a'] else sub for sub in sl])
                     return f"[{s}]"
             
-            except Exception:  # Catch any exceptions and return the original string
+            except Exception: 
                 return s
             
-            # Return original string if it doesn't match tuple or list format
             return s
 
         def is_equal(asw: str, gt_asw: str) -> bool:
@@ -221,10 +214,6 @@ class JudgeLatexEqual(BaseTool):
                 bool: True if the answers are equivalent, otherwise False.
 
             """
-
-            # return gt_asw == asw
-
-            # Check for empty strings after removing spaces and return False if any of them is empty.
             asw = asw.lower()
             gt_asw = gt_asw.lower()
             
@@ -234,11 +223,9 @@ class JudgeLatexEqual(BaseTool):
             if gt_asw.strip() == asw.strip():
                 return True
            
-            # Convert the string to a tuple format.
             asw = eval_tuple(asw)
             gt_asw = eval_tuple(gt_asw)
 
-            # Check for simple tuple containment. Return True if one tuple is contained in the other.
             if gt_asw == asw:
                 return True
 
@@ -247,11 +234,9 @@ class JudgeLatexEqual(BaseTool):
                 # If the evaluated results are close enough (up to 2 decimal places), return True.
                 if round(eval(str(latex2sympy(gt_asw))), 2) == round(eval(str(latex2sympy(asw))), 2):
                     return True
-
                 else:
                     return False
             except:
-                # If any error occurs during comparison, return False.
                 return False
         
         return is_equal(data_1, data_2)
@@ -507,124 +492,85 @@ class RegexMatchMultiOpen(RegexMatch):
 # refer: https://github.com/mathllm/MATH-V/blob/main/evaluation/utils.py
 class RegexMatchLatexMath(RegexMatch):
     """
-    Handle multi-choice and open-ended mixed tasks.
+    Handle multi-choice and open-ended mixed tasks in Latex format.
     """
     def __init__(self, additional_pattern: str = None, match_index: int = None, letter_pattern: str = None):
         super().__init__(additional_pattern, match_index)
 
     def apply(self, data: Union[List, Iterable]) -> Union[List, None]:
-        """Process responses with both letter matching and open-ended analysis"""
+        """Process responses with both letter matching and open-ended analysis in Latex format."""
+        
         def _fix_fracs(string):
-            # Split the string based on occurrences of '\frac'.
+            """Fixes LaTeX fraction formatting by ensuring proper braces for numerators and denominators."""
             substrs = string.split("\\frac")
             new_str = substrs[0]
-
-            # Check if there are any occurrences of '\frac' in the string.
+            
             if len(substrs) > 1:
-                # Exclude the part of the string before the first '\frac'.
                 substrs = substrs[1:]
-
+                
                 for substr in substrs:
                     new_str += "\\frac"
-                    # If the current substring already starts with a brace, 
-                    # it's likely formatted correctly.
                     if len(substr) > 0 and substr[0] == "{":
                         new_str += substr
                     else:
-                        # Ensure that the substring has at least 2 characters 
-                        # for numerator and denominator.
                         try:
                             assert len(substr) >= 2
                         except:
                             return string
-
-                        a = substr[0]  # Potential numerator.
-                        b = substr[1]  # Potential denominator.
-
-                        # Check if the denominator (b) is already braced.
+                        
+                        a = substr[0]  # Numerator
+                        b = substr[1]  # Denominator
+                        
                         if b != "{":
-                            if len(substr) > 2:
-                                post_substr = substr[2:]
-                                new_str += "{" + a + "}{" + b + "}" + post_substr
-                            else:
-                                new_str += "{" + a + "}{" + b + "}"
+                            new_str += "{" + a + "}{" + b + "}" + (substr[2:] if len(substr) > 2 else "")
                         else:
-                            if len(substr) > 2:
-                                post_substr = substr[2:]
-                                new_str += "{" + a + "}" + b + post_substr
-                            else:
-                                new_str += "{" + a + "}" + b
-
-            # Update the string to the newly formatted version.
-            string = new_str
-            return string
+                            new_str += "{" + a + "}" + b + (substr[2:] if len(substr) > 2 else "")
+            
+            return new_str
 
         def _fix_a_slash_b(string):
-            # Check if the string contains exactly one slash, which may indicate it's a fraction.
+            """Convert a/b fraction format to LaTeX \frac{a}{b} format."""
+            
             if len(string.split("/")) != 2:
                 return string
-
-            # Split the string by slash to extract potential numerator and denominator.
             a, b = string.split("/")
-
             try:
-                # Try to convert the parts to integers.
                 a = int(a)
                 b = int(b)
-
-                # Check if the string is in the expected format after conversion.
                 assert string == "{}/{}".format(a, b)
 
-                # Convert the fraction to LaTeX representation.
                 new_string = "\\frac{" + str(a) + "}{" + str(b) + "}"
                 return new_string
-
-            # Handle exceptions for non-integer fractions or other unexpected formats.
             except:
                 return string
 
         def _remove_right_units(string):
-            # Split the string using "\\text{ " as the delimiter.
             splits = string.split("\\text{ ")
-            
-            # Return the part of the string before the last occurrence of "\\text{ ".
             return splits[0]
 
         def _fix_sqrt(string):
-            # Check if "\sqrt" is not in the string. If not, return the string as is.
+            """Fix LaTeX sqrt commands by adding braces around single-character arguments."""
             if "\\sqrt" not in string:
                 return string
 
-            # Split the string based on the "\sqrt" substring.
             splits = string.split("\\sqrt")
-            
-            # The initial portion of the string before the first occurrence of "\sqrt".
             new_string = splits[0]
 
-            # Loop through each split portion (after the initial one).
             for split in splits[1:]:
-                # If the split portion is non-empty and the first character isn't a '{',
-                # then it means the argument of the sqrt is not enclosed in braces.
                 if len(split) > 0 and split[0] != "{":
                     a = split[0]
-                    # Add braces around the first character and append the rest of the split portion.
                     new_substr = "\\sqrt{" + a + "}" + split[1:]
                 else:
-                    # If the split portion starts with a '{', then it's already correct.
                     new_substr = "\\sqrt" + split
-                # Add the new substring to our result string.
                 new_string += new_substr
 
             return new_string
 
         def _strip_string(string):
-            # Remove linebreaks and special characters
+            """Strip and normalize LaTeX strings by removing special characters, normalizing fractions, and standardizing number formats."""
             string = string.replace("\n", "").replace("\\!", "")
-
-            # Replace double backslashes and unify fractions
             string = string.replace("\\\\", "\\").replace("tfrac", "frac").replace("dfrac", "frac")
 
-            # Remove LaTeX commands
             replacements = [
                 ("\\left", ""), 
                 ("\\right", ""),
@@ -638,10 +584,8 @@ class RegexMatchLatexMath(RegexMatch):
             for old, new in replacements:
                 string = string.replace(old, new)
 
-            # Remove units
             string = _remove_right_units(string)
             
-            # Handle floating numbers starting with "."
             string = string.replace(" .", " 0.").replace("{.", "{0.")
             
             if len(string) == 0:
@@ -649,33 +593,28 @@ class RegexMatchLatexMath(RegexMatch):
             if string[0] == ".":
                 string = "0" + string
 
-            # If there are equalities or approximations, only consider the value after them
             if len(string.split("=")) == 2:
                 string = string.split("=")[-1]
             if len(string.split("\\approx")) == 2:
                 string = string.split("\\approx")[-1]
 
-            # Fix sqrt values not wrapped in curly braces. Note: The function _fix_sqrt is not provided.
             if 'sqrt' in string:
                 string = _fix_sqrt(string)
 
-            # Remove all spaces
             string = string.replace(" ", "")
 
-            # Transform certain fraction notations to the desired format. Note: The function _fix_fracs is not provided.
             if 'sqrt' in string:
                 string = _fix_fracs(string)
 
-            # Convert 0.5 to its fraction representation
             if string == "0.5":
                 string = "\\frac{1}{2}"
 
-            # Fix fractions represented with a slash. Note: The function _fix_a_slash_b is not provided.
             string = _fix_a_slash_b(string)
 
             return string
 
         def find_math_answer(s: str) -> str:
+            """Extract and clean mathematical answer from input string."""
             s = s.lower()
             if '{}' in s:
                 s = s.replace('{}', '')
@@ -684,17 +623,14 @@ class RegexMatchLatexMath(RegexMatch):
                 pattern = re.compile('oxed{(.*)}', flags=re.S)
                 ans = pattern.findall(s)[-1]
             except:     
-                ans = s  # If the pattern is not found, consider the entire string as the answer.
+                ans = s
 
-            # If there's a closing bracket without an opening bracket before it, consider everything before it.
-            if ans.find('}') != -1 and (ans.find('{') == -1 or  ans.find('}') < ans.find('{')):
+            if ans.find('}') != -1 and (ans.find('{') == -1 or ans.find('}') < ans.find('{')):
                 ans = ans.split('}')[0]
 
-            # Extract the value after the equals sign or approx symbol.
             ans = ans.split('=')[-1]
             ans = ans.split('\\approx')[-1]
 
-            # Clean the string from various LaTeX formatting.
             ans = ans.replace(" ", "").replace("\\,", "").replace('∞', '\\infty')
             ans = ans.replace("+\infty", "\infty").replace("\\\\", "\\").replace("\n", "")
             ans = ans.replace('\\text', '').replace('\\mbox', '').replace('bmatrix', 'pmatrix')
@@ -702,9 +638,10 @@ class RegexMatchLatexMath(RegexMatch):
             ans = ans.replace("^\\circ", "").replace("{m}^3", "").replace("m^3", "")
             ans = ans.replace("{units}", "").replace("units", "").replace("{km}", "").replace("km", "")
             return _strip_string(ans)         
-        
+            
         try:
             def process_single_response(response: str) -> List:
+                """Process a single response to extract mathematical answer."""
                 response = '\\boxed{' + response.split('oxed{')[-1]
                 response = find_math_answer(response).replace('(a)', 'a').replace('(b)', 'b').replace('(c)', 'c').replace('(d)', 'd').replace('(e)', 'e').replace('{a}', 'a').replace('{b}', 'b').replace('{c}', 'c').replace('{d}', 'd').replace('{e}', 'e').rstrip('.').lstrip(':').strip()
                 return response
