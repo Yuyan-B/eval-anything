@@ -146,7 +146,7 @@ def clean_cache(cache_dir: str="cache"):
 def main():
     if len(sys.argv) == 1:
         show_welcome()
-        console.print()  # 空行
+        console.print()
         show_usage()
         return
 
@@ -172,7 +172,6 @@ def main():
         elif command == Command.VER:
             show_welcome()
             
-            # 版本兼容性检查
             if not check_version_compatibility('0.0.1'):
                 show_warning("Current version might not be compatible with latest features")
 
