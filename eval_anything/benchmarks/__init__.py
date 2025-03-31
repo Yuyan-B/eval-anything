@@ -11,6 +11,7 @@ benchmark_modules = [
     "benchmarks.text_to_text.MMLUPRO.eval",
     "benchmarks.text_to_text.CEval.eval",
     "benchmarks.text_image_to_text.mmmu.eval",
+    "benchmarks.text_image_to_text.mathvision.eval",
 ]
 
 for module in benchmark_modules:
