@@ -77,8 +77,6 @@ class vllmMM(BaseModel):
         Internal method to handle generation logic using the model.
         Processes input list and returns inference outputs.
         """
-
-        # TODO： Generalize the generation process for different modalities
     
         vllm_inputs = []
         for input in input_list:
