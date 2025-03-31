@@ -58,6 +58,7 @@ dependencies = [
     "clip",
     "pytorch_fid",
     "av",
+    "latex2sympy2",
 ]
 
 dynamic = ["version"]

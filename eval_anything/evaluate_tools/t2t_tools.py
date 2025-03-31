@@ -4,6 +4,8 @@ Evaluation tools package (including calculation of various metrics and extractio
 from abc import ABC, abstractmethod
 from eval_anything.evaluate_tools.base_tools import BaseTool
 from typing import Union, List, Iterable, Optional
+from latex2sympy2 import latex2sympy
+from math import *
 import numpy as np
 import re
 
@@ -14,11 +16,13 @@ T2T_EXTRACTOR_MAP = {
     "regex_match_code": "RegexMatchCode",
     "regex_match_math": "RegexMatchMath",
     "regex_match_multi_open": "RegexMatchMultiOpen",
+    "regex_match_latex_math" : "RegexMatchLatexMath"
 }
 
 T2T_JUDGER_MAP = {
     "judge_equal": "JudgeEqual",
     "judge_equal_list": "JudgeEqualList",
+    "judge_latex_equal":"JudgeLatexEqual",
     "judge_mc1": "JudgeMC1",
     "judge_mc2": "JudgeMC2",
 }
@@ -150,6 +154,95 @@ class JudgeEqualList(BaseTool):
     def __call__(self, data_1, data_2) -> bool:
         return self.apply(data_1, data_2)
     
+    
+# refer: https://github.com/mathllm/MATH-V/blob/main/evaluation/utils.py
+class JudgeLatexEqual(BaseTool):
+    def __init__(self):
+        super().__init__()
+
+
+    def apply(self, data_1, data_2) -> bool:
+        def eval_tuple(s):
+            """
+            Evaluates the mathematical expressions within tuples or lists represented as strings.
+            
+            Args:
+                s (str): The string representation of a tuple or list.
+                         E.g., "(a,b,c,...)" or "[a,b,c,...]"
+            
+            Returns:
+                str: A string representation of the tuple or list with evaluated expressions.
+                     Returns the original string if it doesn't match the expected format or if an error occurs.
+            
+            Example:
+                eval_tuple("(2*3, 5+2)") -> "(6,7)"
+            
+            Note:
+                This function relies on the latex2sympy function which is assumed to be defined elsewhere in the code.
+            """
+            sl = s[1:-1].split(',')
+            
+            try:
+                if s[0] == '(' and s[-1] == ')' and len(sl) > 1:
+                    s = ','.join([str(round(eval(str(latex2sympy(sub))),2)) 
+                                  if 'infty' not in sub and sub not in ['a', '-a'] else sub for sub in sl])
+                    return f"({s})"
+                
+                elif s[0] == '[' and s[-1] == ']' and len(sl) > 1:
+                    s = ','.join([str(round(eval(str(latex2sympy(sub))),2)) 
+                                  if 'infty' not in sub and sub not in ['a', '-a'] else sub for sub in sl])
+                    return f"[{s}]"
+            
+            except Exception: 
+                return s
+            
+            return s
+
+        def is_equal(asw: str, gt_asw: str) -> bool:
+            """
+            Judge if `asw` is equivalent to `gt_asw`.
+
+            This function checks if the given answers are equivalent, considering
+            various scenarios such as tuples, lists separated by commas, and
+            mathematical equivalence in LaTeX format.
+
+            Args:
+                asw (str): The answer string to be checked.
+                gt_asw (str): The ground truth answer string to be matched against.
+
+            Returns:
+                bool: True if the answers are equivalent, otherwise False.
+
+            """
+            asw = asw.lower()
+            gt_asw = gt_asw.lower()
+            
+            if asw.replace(' ', '') == '' or gt_asw.replace(' ', '') == '':
+                return False
+
+            if gt_asw.strip() == asw.strip():
+                return True
+           
+            asw = eval_tuple(asw)
+            gt_asw = eval_tuple(gt_asw)
+
+            if gt_asw == asw:
+                return True
+
+            try:
+                # Convert LaTeX format to a sympy expression and evaluate both expressions.
+                # If the evaluated results are close enough (up to 2 decimal places), return True.
+                if round(eval(str(latex2sympy(gt_asw))), 2) == round(eval(str(latex2sympy(asw))), 2):
+                    return True
+                else:
+                    return False
+            except:
+                return False
+        
+        return is_equal(data_1, data_2)
+    
+    def __call__(self, data_1, data_2) -> bool:
+        return self.apply(data_1, data_2)
 
 class RegexMatchLetter(RegexMatch):
     def __init__(self, additional_pattern: str = None, match_index: int = None):
@@ -395,6 +488,172 @@ class RegexMatchMultiOpen(RegexMatch):
 
     def __call__(self, data: Union[List, Iterable]) -> Union[List, None]:
         return self.apply(data)
+    
+# refer: https://github.com/mathllm/MATH-V/blob/main/evaluation/utils.py
+class RegexMatchLatexMath(RegexMatch):
+    """
+    Handle multi-choice and open-ended mixed tasks in Latex format.
+    """
+    def __init__(self, additional_pattern: str = None, match_index: int = None, letter_pattern: str = None):
+        super().__init__(additional_pattern, match_index)
+
+    def apply(self, data: Union[List, Iterable]) -> Union[List, None]:
+        """Process responses with both letter matching and open-ended analysis in Latex format."""
+        
+        def _fix_fracs(string):
+            """Fixes LaTeX fraction formatting by ensuring proper braces for numerators and denominators."""
+            substrs = string.split("\\frac")
+            new_str = substrs[0]
+            
+            if len(substrs) > 1:
+                substrs = substrs[1:]
+                
+                for substr in substrs:
+                    new_str += "\\frac"
+                    if len(substr) > 0 and substr[0] == "{":
+                        new_str += substr
+                    else:
+                        try:
+                            assert len(substr) >= 2
+                        except:
+                            return string
+                        
+                        a = substr[0]  # Numerator
+                        b = substr[1]  # Denominator
+                        
+                        if b != "{":
+                            new_str += "{" + a + "}{" + b + "}" + (substr[2:] if len(substr) > 2 else "")
+                        else:
+                            new_str += "{" + a + "}" + b + (substr[2:] if len(substr) > 2 else "")
+            
+            return new_str
+
+        def _fix_a_slash_b(string):
+            """Convert a/b fraction format to LaTeX \frac{a}{b} format."""
+            
+            if len(string.split("/")) != 2:
+                return string
+            a, b = string.split("/")
+            try:
+                a = int(a)
+                b = int(b)
+                assert string == "{}/{}".format(a, b)
+
+                new_string = "\\frac{" + str(a) + "}{" + str(b) + "}"
+                return new_string
+            except:
+                return string
+
+        def _remove_right_units(string):
+            splits = string.split("\\text{ ")
+            return splits[0]
+
+        def _fix_sqrt(string):
+            """Fix LaTeX sqrt commands by adding braces around single-character arguments."""
+            if "\\sqrt" not in string:
+                return string
+
+            splits = string.split("\\sqrt")
+            new_string = splits[0]
+
+            for split in splits[1:]:
+                if len(split) > 0 and split[0] != "{":
+                    a = split[0]
+                    new_substr = "\\sqrt{" + a + "}" + split[1:]
+                else:
+                    new_substr = "\\sqrt" + split
+                new_string += new_substr
+
+            return new_string
+
+        def _strip_string(string):
+            """Strip and normalize LaTeX strings by removing special characters, normalizing fractions, and standardizing number formats."""
+            string = string.replace("\n", "").replace("\\!", "")
+            string = string.replace("\\\\", "\\").replace("tfrac", "frac").replace("dfrac", "frac")
+
+            replacements = [
+                ("\\left", ""), 
+                ("\\right", ""),
+                ("^{\\circ}", ""),
+                ("^\\circ", ""),
+                ("\\$", ""),
+                ("$", ""),
+                ("\\%", ""),
+                ("\%", "")
+            ]
+            for old, new in replacements:
+                string = string.replace(old, new)
+
+            string = _remove_right_units(string)
+            
+            string = string.replace(" .", " 0.").replace("{.", "{0.")
+            
+            if len(string) == 0:
+                return string
+            if string[0] == ".":
+                string = "0" + string
+
+            if len(string.split("=")) == 2:
+                string = string.split("=")[-1]
+            if len(string.split("\\approx")) == 2:
+                string = string.split("\\approx")[-1]
+
+            if 'sqrt' in string:
+                string = _fix_sqrt(string)
+
+            string = string.replace(" ", "")
+
+            if 'sqrt' in string:
+                string = _fix_fracs(string)
+
+            if string == "0.5":
+                string = "\\frac{1}{2}"
+
+            string = _fix_a_slash_b(string)
+
+            return string
+
+        def find_math_answer(s: str) -> str:
+            """Extract and clean mathematical answer from input string."""
+            s = s.lower()
+            if '{}' in s:
+                s = s.replace('{}', '')
+
+            try:
+                pattern = re.compile('oxed{(.*)}', flags=re.S)
+                ans = pattern.findall(s)[-1]
+            except:     
+                ans = s
+
+            if ans.find('}') != -1 and (ans.find('{') == -1 or ans.find('}') < ans.find('{')):
+                ans = ans.split('}')[0]
+
+            ans = ans.split('=')[-1]
+            ans = ans.split('\\approx')[-1]
+
+            ans = ans.replace(" ", "").replace("\\,", "").replace('∞', '\\infty')
+            ans = ans.replace("+\infty", "\infty").replace("\\\\", "\\").replace("\n", "")
+            ans = ans.replace('\\text', '').replace('\\mbox', '').replace('bmatrix', 'pmatrix')
+            ans = ans.replace("\\left", "").replace('\\right', '').replace("^{\\circ}", "")
+            ans = ans.replace("^\\circ", "").replace("{m}^3", "").replace("m^3", "")
+            ans = ans.replace("{units}", "").replace("units", "").replace("{km}", "").replace("km", "")
+            return _strip_string(ans)         
+            
+        try:
+            def process_single_response(response: str) -> List:
+                """Process a single response to extract mathematical answer."""
+                response = '\\boxed{' + response.split('oxed{')[-1]
+                response = find_math_answer(response).replace('(a)', 'a').replace('(b)', 'b').replace('(c)', 'c').replace('(d)', 'd').replace('(e)', 'e').replace('{a}', 'a').replace('{b}', 'b').replace('{c}', 'c').replace('{d}', 'd').replace('{e}', 'e').rstrip('.').lstrip(':').strip()
+                return response
+            return [process_single_response(response) for response in data]
+        except Exception as e:
+            print(f"Error processing responses: {e}")
+            return None
+
+    def __call__(self, data: Union[List, Iterable]) -> Union[List, None]:
+        return self.apply(data)
+
+    
     
 class JudgeMC1(BaseTool):
     def __init__(self):
