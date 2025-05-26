@@ -21,4 +21,4 @@ pip install -e .
 
 ## Development
 
-开发指南请见[development.md](eval-anything/development.md)
+开发指南请见[development.md](development.md)
