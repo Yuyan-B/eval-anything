@@ -27,6 +27,7 @@ BENCHMARK_MODALITY_MAP = {
     'mmau': 'text_audio_to_text',
     'mmvu': 'text_video_to_text',
     'doanythingnow': 'text_to_text',
+    'donotanswer': 'text_to_text',
 }
 
 
