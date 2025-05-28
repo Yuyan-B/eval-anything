@@ -10,6 +10,7 @@ benchmark_modules = [
     "benchmarks.text_to_text.CMMLU.eval",
     "benchmarks.text_to_text.MMLUPRO.eval",
     "benchmarks.text_to_text.CEval.eval",
+    "benchmarks.text_to_text.DoAnythingNow.eval",
     "benchmarks.text_image_to_text.mmmu.eval",
     "benchmarks.text_image_to_text.mathvision.eval",
     "benchmarks.text_audio_to_text.mmau.eval",

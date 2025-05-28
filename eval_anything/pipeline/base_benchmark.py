@@ -6,11 +6,7 @@ from eval_anything.utils.logger import EvalLogger
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput, EvaluationResult
 from eval_anything.evaluate_tools.metrics import MetricCalculator, OverallMetricCalculator
 from eval_anything.evaluate_tools.metrics import MetricCalculator, OverallMetricCalculator
-from eval_anything.utils.utils import (
-    read_cfgs_from_yaml, 
-    pair_data_via_uuid,
-    dict_to_namedtuple
-)
+from eval_anything.utils.utils import read_cfgs_from_yaml, pair_data_via_uuid, dict_to_namedtuple
 from eval_anything.utils.cache_manager import CacheManager
 from eval_anything.models.base_model import BaseModel
 from eval_anything.utils.register import BenchmarkRegistry, AnswerExtractorRegistry
@@ -30,19 +26,23 @@ BENCHMARK_MODALITY_MAP = {
     'mathvision': 'text_image_to_text',
     'mmau': 'text_audio_to_text',
     'mmvu': 'text_video_to_text',
+    'doanythingnow': 'text_to_text',
 }
+
 
 @BenchmarkRegistry.register("base")
 class BaseBenchmark(ABC):
 
-    def __init__(self, 
-                 model: BaseModel, 
-                 eval_cfgs: namedtuple, 
-                 model_cfgs: namedtuple, 
-                 infer_cfgs: namedtuple, 
-                 output_path: str, 
-                 cache_manager: CacheManager = None, 
-                 logger: EvalLogger = None):
+    def __init__(
+        self,
+        model: BaseModel,
+        eval_cfgs: namedtuple,
+        model_cfgs: namedtuple,
+        infer_cfgs: namedtuple,
+        output_path: str,
+        cache_manager: CacheManager = None,
+        logger: EvalLogger = None,
+    ):
         self.model = model
         self.eval_cfgs = eval_cfgs
         self.model_cfgs = model_cfgs
@@ -52,16 +52,19 @@ class BaseBenchmark(ABC):
         self.cache_manager = cache_manager
         self.enable_cache = True if cache_manager else False
         self.benchmark_name = "base"
-       
+
     def get_benchmark_cfgs(self, benchmark_name: str) -> dict:
         """Get benchmark configs from yaml file in benchmark folder
         Args:
             benchmark_name (str): benchmark name
-            
+
         Returns:
             benchmark_cfgs (dict): benchmark configs, including
         """
-        benchmark_cfgs = read_cfgs_from_yaml(yaml_relative_dir=f'benchmarks/{BENCHMARK_MODALITY_MAP[benchmark_name.lower()]}/{benchmark_name}', yaml_name=f'configs.yaml')
+        benchmark_cfgs = read_cfgs_from_yaml(
+            yaml_relative_dir=f'benchmarks/{BENCHMARK_MODALITY_MAP[benchmark_name.lower()]}/{benchmark_name}',
+            yaml_name=f'configs.yaml',
+        )
         benchmark_cfgs = dict_to_namedtuple(benchmark_cfgs)
         return benchmark_cfgs
 
@@ -83,55 +86,77 @@ class BaseBenchmark(ABC):
         dataloader = self.init_dataloader(self.eval_cfgs, self.benchmark_cfgs)
         return dataloader.load_dataset(task_list)
 
-    def to_InferenceOutput(self, inference_inputs: dict[str, list[InferenceInput]]) -> dict[str, list[InferenceOutput]]:
+    def to_InferenceOutput(
+        self, inference_inputs: dict[str, list[InferenceInput]]
+    ) -> dict[str, list[InferenceOutput]]:
         """Convert a InferenceInput dict instances to a InferenceOutput dict instances"""
         return self.batch_inference(self.model, inference_inputs)
 
-    def to_EvaluationResult(self, task_list: list[str], inference_outputs: dict[str, list[InferenceOutput]]) -> tuple[dict[str, list[EvaluationResult]], dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+    def to_EvaluationResult(
+        self, task_list: list[str], inference_outputs: dict[str, list[InferenceOutput]]
+    ) -> tuple[
+        dict[str, list[EvaluationResult]], dict[str, dict[str, float]], dict[str, dict[str, float]]
+    ]:
         """Convert a InferenceOutput dict instances to evaluation details, evaluation results, and overall results"""
         evaluation_details = {}
         evaluation_results = {}
         if task_list == []:
             task_list = self.benchmark_cfgs.dataset.default_task_list
-            
+
         for task in task_list:
             if self.benchmark_cfgs.judge_method is not None:
-                evaluation_details[task], evaluation_results[task] = self.calculate_metrics(self.benchmark_name, inference_outputs[task], self.benchmark_cfgs.answer_extractor, self.benchmark_cfgs.metrics, self.benchmark_cfgs.judge_method)
+                evaluation_details[task], evaluation_results[task] = self.calculate_metrics(
+                    self.benchmark_name,
+                    inference_outputs[task],
+                    self.benchmark_cfgs.answer_extractor,
+                    self.benchmark_cfgs.metrics,
+                    self.benchmark_cfgs.judge_method,
+                )
             else:
-                evaluation_details[task], evaluation_results[task] = self.calculate_metrics(self.benchmark_name, inference_outputs[task], self.benchmark_cfgs.answer_extractor, self.benchmark_cfgs.metrics)
-        
+                evaluation_details[task], evaluation_results[task] = self.calculate_metrics(
+                    self.benchmark_name,
+                    inference_outputs[task],
+                    self.benchmark_cfgs.answer_extractor,
+                    self.benchmark_cfgs.metrics,
+                )
+
         if len(task_list) == 1:
             overall_result = {}
         else:
-            overall_result = self.calculate_overall_metrics(self.benchmark_cfgs.overall_metrics, result=evaluation_results)
-            
+            overall_result = self.calculate_overall_metrics(
+                self.benchmark_cfgs.overall_metrics, result=evaluation_results
+            )
+
         self.display_benchmark_results(self.benchmark_name, evaluation_results)
         if overall_result != {}:
             self.display_benchmark_results(self.benchmark_name, overall_result)
-        
+
         return evaluation_details, evaluation_results, overall_result
 
-    def batch_inference(self, model, input_dict: dict[str, list[InferenceInput]]) -> dict[str, list[InferenceOutput]]:
+    def batch_inference(
+        self, model, input_dict: dict[str, list[InferenceInput]]
+    ) -> dict[str, list[InferenceOutput]]:
         # TODO 需要支持多轮
         """Model inference. Support multi-round inference.
         Args:
             input_data (list[InferenceInput]): input data
-            
+
         Returns:
             inference_outputs (list[InferenceOutput]): inference outputs
         """
-        
+
         input_list = [item for _, inference_input in input_dict.items() for item in inference_input]
-        
+
         input_batch_size = 500
-        input_data_batches = [input_list[i:i+input_batch_size] for i in range(0, len(input_list), input_batch_size)]
+        input_data_batches = [
+            input_list[i : i + input_batch_size]
+            for i in range(0, len(input_list), input_batch_size)
+        ]
         inference_outputs = []
         for input_data_batch in input_data_batches:
             if self.enable_cache:
                 cache_path, cache_exist = self.cache_manager.get_cache_path(
-                    self.model_cfgs, 
-                    self.infer_cfgs,
-                    input_data_batch
+                    self.model_cfgs, self.infer_cfgs, input_data_batch
                 )
                 if cache_exist:
                     inference_outputs.extend(self.cache_manager.load(cache_path))
@@ -152,25 +177,34 @@ class BaseBenchmark(ABC):
         """Model inference. Support multi-round inference.
         Args:
             input_data (list[InferenceInput]): input data
-            
+
         Returns:
             inference_outputs (list[InferenceOutput]): inference outputs
         """
         return model.generation(input_data)
-    
-    def calculate_overall_metrics(self, metric_list: list[namedtuple], result: dict[str, dict[str, dict[str, float]]] = None):
+
+    def calculate_overall_metrics(
+        self, metric_list: list[namedtuple], result: dict[str, dict[str, dict[str, float]]] = None
+    ):
         """Calculate overall metrics
         Args:
             metric_list (list[namedtuple]): metric list
             result (dict[str, dict[str, dict[str, float]]]): evaluation results. {task: {metric: {extractor: score}}}
-            
+
         Returns:
             overall_metrics (dict[str, dict[str, dict[str, float]]]): overall metrics {overall_metric: {metric: {extractor: score}}}
         """
         overall_metric_calculator = OverallMetricCalculator(metric_list)
         return overall_metric_calculator(result)
-    
-    def calculate_metrics(self, benchmark_name: str, inference_outputs: list[InferenceOutput], answer_extractors: list[namedtuple], metrics_list: list[dict], judge_method: str = 'judge_equal'):
+
+    def calculate_metrics(
+        self,
+        benchmark_name: str,
+        inference_outputs: list[InferenceOutput],
+        answer_extractors: list[namedtuple],
+        metrics_list: list[dict],
+        judge_method: str = 'judge_equal',
+    ):
         """Calculate metrics
         Args:
             benchmark_name (str): benchmark name
@@ -192,17 +226,32 @@ class BaseBenchmark(ABC):
                 extracted_results[answer_extractor.name] = extractor.apply(output_text)
             else:
                 extracted_results[answer_extractor.name] = output_text
-        
+
         evaluation_details = []
         ref_answers = [item.ref_answer for item in inference_outputs]
-        for inference_output, ref_answer, index in zip(inference_outputs, ref_answers, range(len(inference_outputs))):
-            extracted_result = {extractor: extracted_results[extractor][index] for extractor in extracted_results.keys()}
-            evaluation_details.append(EvaluationResult(benchmark_name, inference_output, extracted_result, ref_answer, inference_output.uuid))
+        for inference_output, ref_answer, index in zip(
+            inference_outputs, ref_answers, range(len(inference_outputs))
+        ):
+            extracted_result = {
+                extractor: extracted_results[extractor][index]
+                for extractor in extracted_results.keys()
+            }
+            evaluation_details.append(
+                EvaluationResult(
+                    benchmark_name,
+                    inference_output,
+                    extracted_result,
+                    ref_answer,
+                    inference_output.uuid,
+                )
+            )
         metric_calculator = MetricCalculator(metrics_list, judge_method)
         evaluation_results = metric_calculator(evaluation_details)
         return evaluation_details, evaluation_results
-    
-    def calculate_overall_metrics(self, overall_metrics: list[namedtuple], result: dict[str, dict[str, float]]) -> dict[str, float]:
+
+    def calculate_overall_metrics(
+        self, overall_metrics: list[namedtuple], result: dict[str, dict[str, float]]
+    ) -> dict[str, float]:
         """Calculate overall metrics
         Args:
             overall_metrics (list[namedtuple]): overall metrics
@@ -212,19 +261,21 @@ class BaseBenchmark(ABC):
         overall_result = overall_metric_calculator(result)
         return overall_result
 
-    def get_ref_answer(self, input_data: list[InferenceInput], inference_outputs: list[InferenceOutput]) -> list[any]:
+    def get_ref_answer(
+        self, input_data: list[InferenceInput], inference_outputs: list[InferenceOutput]
+    ) -> list[any]:
         """Get reference answers from input data
         Args:
             input_data (list[InferenceInput]): input data
             inference_outputs (list[InferenceOutput]): inference outputs
-            
+
         Returns:
             ref_answers (list[any]): reference answers
         """
         paired_data = pair_data_via_uuid(input_data, inference_outputs)
         ref_answer = [item.ref_answer for item, _ in paired_data]
         return ref_answer
-    
+
     def display_benchmark_results(self, benchmark_name: str, result: Dict[str, Dict[str, float]]):
         """Display single benchmark results in command line.
         Args:
@@ -237,16 +288,29 @@ class BaseBenchmark(ABC):
             for metric, metric_result in task_result.items():
                 metric_result = max(metric_result.values())
                 result_to_display[task][metric] = metric_result
-        self.logger.print_table(title=f'{benchmark_name} Benchmark', data=result_to_display, to_csv=True, csv_file_name=f'{benchmark_name}_results.csv')
+        self.logger.print_table(
+            title=f'{benchmark_name} Benchmark',
+            data=result_to_display,
+            to_csv=True,
+            csv_file_name=f'{benchmark_name}_results.csv',
+        )
         self.logger.log('info', '++++++++++++++++++++++++++++++++++++')
         self.logger.log('info', f'Benchmark: {benchmark_name}')
         self.logger.log('info', f"model_id: {self.model_cfgs.model_id},")
         self.logger.log('info', f"num_fewshot: {self.eval_cfgs.n_shot._asdict()[benchmark_name]},")
-        self.logger.log('info', f"chain_of_thought: {self.eval_cfgs.cot._asdict()[benchmark_name]},")
+        self.logger.log(
+            'info', f"chain_of_thought: {self.eval_cfgs.cot._asdict()[benchmark_name]},"
+        )
         self.logger.log('info', '++++++++++++++++++++++++++++++++++++')
-    
+
     @abstractmethod
-    def save_benchmark_details(self, save_path: str, benchmark_name: str, inputs: Dict[str, List[InferenceInput]], results: Dict[str, List[EvaluationResult]]):
+    def save_benchmark_details(
+        self,
+        save_path: str,
+        benchmark_name: str,
+        inputs: Dict[str, List[InferenceInput]],
+        results: Dict[str, List[EvaluationResult]],
+    ):
         """Save evaluation result and config file of single benchmark.
         Args:
             save_path (str): save path
