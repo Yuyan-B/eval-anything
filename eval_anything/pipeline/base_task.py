@@ -1,34 +1,27 @@
 """
 任务基类，不直接使用，而是继承后实现具体任务的逻辑
 
-TODO 
+TODO
     - 代码鲁棒性
     - logger
 """
-from abc import ABC, abstractmethod
+
+from abc import ABC
 import os
-import hashlib
 import importlib
 import json
-import yaml
-from typing import Dict, List
 from collections import namedtuple
 import gradio as gr
 import pandas as pd
 
-# Third-party imports
-# from vllm.sequence import Logprob
-# from vllm.sequence import RequestOutput
-
-# Local imports
 from eval_anything.utils.logger import EvalLogger
 from eval_anything.models.base_model import MODEL_MAP, CLASS_MAP
-from eval_anything.evaluate_tools.t2t_tools import *
-import eval_anything.evaluate_tools.t2t_tools as T2T_TOOLS
 from eval_anything.utils.utils import (
-    read_cfgs_from_yaml, update_dict, 
-    custom_cfgs_to_dict, BENCHMARK_MODALITY_MAP, pair_data_via_uuid,
-    dict_to_namedtuple, namedtuple_to_dict
+    read_cfgs_from_yaml,
+    update_dict,
+    custom_cfgs_to_dict,
+    dict_to_namedtuple,
+    namedtuple_to_dict,
 )
 from eval_anything.utils.cache_manager import CacheManager
 from eval_anything.utils.register import BenchmarkRegistry
@@ -36,21 +29,24 @@ import eval_anything.benchmarks
 import eval_anything.dataloader.format_mm_dataset
 
 
-
 class BaseTask(ABC):
     def __init__(self, overall_cfgs_name: str, **kwargs):
-        self.eval_cfgs, self.model_cfgs, self.infer_cfgs = self.get_overall_configs(overall_cfgs_name, **kwargs)
+        self.eval_cfgs, self.model_cfgs, self.infer_cfgs = self.get_overall_configs(
+            overall_cfgs_name, **kwargs
+        )
         self.enable_cache = True if self.eval_cfgs.cache_dir else False
         self.output_path = self.eval_cfgs.output_dir
         self.logger = EvalLogger('Eval-Anything', log_dir=self.output_path)
-        self.cache_manager = CacheManager(self.eval_cfgs.cache_dir, self.logger) if self.enable_cache else None
+        self.cache_manager = (
+            CacheManager(self.eval_cfgs.cache_dir, self.logger) if self.enable_cache else None
+        )
         self.model = self.load_model(self.model_cfgs, self.infer_cfgs)
 
     def get_overall_configs(self, overall_cfgs_name: str, **kwargs):
         """Get configs from yaml file
         Args:
             overall_cfgs_name (str): YAML filename for evaluation configurations in eval-anything/configs/.
-            
+
         Returns:
             eval_cfgs (dict): eval configs, including
             model_cfgs (dict): model configs
@@ -70,10 +66,10 @@ class BaseTask(ABC):
         model_cfgs = dict_to_namedtuple(model_cfgs)
         infer_cfgs = dict_to_namedtuple(infer_cfgs)
         return eval_cfgs, model_cfgs, infer_cfgs
-    
+
     def get_benchmark_dict(self) -> dict[str, list[str]]:
         """Get benchmark name from self.task_cfgs
-            
+
         Returns:
             benchmark_dict (dict[str, list[str]]): {benchmark_name: [task_name1, task_name2, ...]}
         """
@@ -87,21 +83,39 @@ class BaseTask(ABC):
         model_class = getattr(module, CLASS_MAP[backend_type])
         model = model_class(model_cfgs, infer_cfgs)
         return model
-    
+
     def iterate_run(self) -> list[dict[str, dict[str, float]]]:
         """Iterate benchmark list and run benchmarks"""
         self.results = {}
         self.benchmark_dict = self.get_benchmark_dict()
         overall_results = {}
         for benchmark_name, task_list in self.benchmark_dict.items():
-            benchmark_evaluator = BenchmarkRegistry.get_benchmark(benchmark_name)(self.model, self.eval_cfgs, self.model_cfgs, self.infer_cfgs, self.output_path, self.cache_manager, self.logger)
-            evaluation_details, evaluation_results, overall_result = benchmark_evaluator.run(task_list)
+            benchmark_evaluator = BenchmarkRegistry.get_benchmark(benchmark_name)(
+                self.model,
+                self.eval_cfgs,
+                self.model_cfgs,
+                self.infer_cfgs,
+                self.output_path,
+                self.cache_manager,
+                self.logger,
+            )
+            benchmark_evaluator.logger.log('info', f'Evaluating {benchmark_name}...')
+
+            inference_inputs = benchmark_evaluator.to_InferenceInput(task_list)
+            inference_outputs = benchmark_evaluator.to_InferenceOutput(inference_inputs)
+            evaluation_details, evaluation_results, overall_result = (
+                benchmark_evaluator.to_EvaluationResult(task_list, inference_outputs)
+            )
+
+            benchmark_evaluator.save_benchmark_details(
+                self.output_path, benchmark_name, inference_inputs, evaluation_details
+            )
             self.results[benchmark_name] = evaluation_results
             overall_results[benchmark_name] = overall_result
         self.display_task_results(overall_results)
         self.save_task_details(self.output_path)
         return self.results
-    
+
     def shutdown_model(self):
         """Shutdown model"""
         self.model.shutdown()
@@ -115,12 +129,12 @@ class BaseTask(ABC):
         for benchmark_name, result in results.items():
             if result != {}:
                 self.logger.print_table(
-                    title=f'Brief Report of {benchmark_name}', 
-                    data=result, 
-                    to_csv=True, 
-                    csv_file_name=f'{benchmark_name}_brief_report.csv'
+                    title=f'Brief Report of {benchmark_name}',
+                    data=result,
+                    to_csv=True,
+                    csv_file_name=f'{benchmark_name}_brief_report.csv',
                 )
-        
+
         # Launch visualization if enabled in config
         if hasattr(self.eval_cfgs, 'visualization') and self.eval_cfgs.visualization.enable:
             self._launch_visualization(results)
@@ -139,7 +153,7 @@ class BaseTask(ABC):
                 df['Benchmark'] = benchmark_name
                 df['Modality'] = self._get_modality_type()  # Get current task's modality type
                 dfs.append(df)
-        
+
         if dfs:
             return pd.concat(dfs)
         return pd.DataFrame()
@@ -172,50 +186,43 @@ class BaseTask(ABC):
 
         with gr.Blocks() as demo:
             gr.Markdown(f"# {self._get_modality_type().title()} Task Evaluation Results")
-            
+
             with gr.Tab("Results Overview"):
                 gr.Dataframe(
                     value=results_df,
                     headers=results_df.columns.tolist(),
                     row_count=(len(results_df), "dynamic"),
                 )
-            
+
             with gr.Tab("Metrics Visualization"):
-                metric_columns = [col for col in results_df.columns 
-                                if col not in ['Benchmark', 'Modality']]
-                
+                metric_columns = [
+                    col for col in results_df.columns if col not in ['Benchmark', 'Modality']
+                ]
+
                 for metric in metric_columns:
                     if not results_df[metric].isnull().all():
                         plot_fig = results_df.plot(
-                            kind='bar',
-                            x='Benchmark',
-                            y=metric,
-                            title=f'{metric} Across Benchmarks'
+                            kind='bar', x='Benchmark', y=metric, title=f'{metric} Across Benchmarks'
                         ).figure
                         gr.Plot(value=plot_fig)
 
             with gr.Tab("Export"):
                 gr.File(
                     value=os.path.join(self.output_path, 'evaluation_details.json'),
-                    label="Download Complete Results"
+                    label="Download Complete Results",
                 )
 
         # Create visualization directory and launch interface
         vis_path = os.path.join(self.output_path, 'visualization')
         os.makedirs(vis_path, exist_ok=True)
-        
+
         # Get visualization server settings from config
         vis_config = self.eval_cfgs.visualization
         server_port = vis_config.port if hasattr(vis_config, 'port') else 8080
         share = vis_config.share if hasattr(vis_config, 'share') else False
-        
+
         try:
-            demo.launch(
-                server_port=server_port,
-                server_name="0.0.0.0",
-                share=share,
-                quiet=True
-            )
+            demo.launch(server_port=server_port, server_name="0.0.0.0", share=share, quiet=True)
         except Exception as e:
             self.logger.error(f"Failed to launch visualization interface: {str(e)}")
 
@@ -229,7 +236,7 @@ class BaseTask(ABC):
             'eval_cfgs': namedtuple_to_dict(self.eval_cfgs),
             'model_cfgs': namedtuple_to_dict(self.model_cfgs),
             'infer_cfgs': namedtuple_to_dict(self.infer_cfgs),
-            'results': self.results
+            'results': self.results,
         }
         with open(os.path.join(save_path, 'evaluation_details.json'), 'w') as f:
             json.dump(output_dict, f, indent=4)

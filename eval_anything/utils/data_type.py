@@ -6,8 +6,6 @@ EvaluationResult: 存储评估结果
 TODO 还需适配
 """
 
-
-
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union, Any
 import json
@@ -17,21 +15,21 @@ from openai.types.chat.chat_completion import ChatCompletion
 from vllm.outputs import RequestOutput
 from vllm.sequence import PromptLogprobs
 from enum import Enum
-from eval_anything.evaluate_tools.t2t_tools import T2T_JUDGER_MAP
-import eval_anything.evaluate_tools.t2t_tools as T2T_TOOLS
 import numpy as np
 from eval_anything.utils.uuid import UUIDGenerator
+
 
 @dataclass
 class RewardModelOutput:
     """The output data of a reward model."""
+
 
 class ModalityType(Enum):
     TEXT = "text"
     IMAGE = "image"
     VIDEO = "video"
     AUDIO = "audio"
-    VISION = "vision" # For Imagebind
+    VISION = "vision"  # For Imagebind
 
     def __str__(self):
         return self.value
@@ -71,6 +69,7 @@ class MultiModalData:
         else:
             raise ValueError(f"Unsupported file type: {type(self.file)}")
 
+
 @dataclass
 class InferenceInput:
     """The input data of a completion request to the LLM.
@@ -82,6 +81,7 @@ class InferenceInput:
         ref_answer: The ground truth answer.
         metadata: The metadata of the input.
     """
+
     task: str
     conversation: List[Dict]
     uuid: str
@@ -93,28 +93,24 @@ class InferenceInput:
         task: str,
         conversation: List[Dict[str, str]],
         ref_answer: str | dict[str, list] | List[any] | int | None = None,
-        metadata: dict = None
+        metadata: dict = None,
     ):
         self.task = task
         self.conversation = conversation
-        self.ref_answer = ref_answer    # ground_truth
+        self.ref_answer = ref_answer  # ground_truth
         self.metadata = metadata or {}  # Store benchmark-specific data
 
         self.uuid_generator = UUIDGenerator()
-        self.uuid = self.uuid_generator({
-            "task": self.task,
-            "conversation": self.conversation
-        })
+        self.uuid = self.uuid_generator({"task": self.task, "conversation": self.conversation})
 
     def __str__(self):
-        return json.dumps({
-            "task": self.task,
-            "conversation": self.conversation
-        }, ensure_ascii=False, indent=4)
-        
+        return json.dumps(
+            {"task": self.task, "conversation": self.conversation}, ensure_ascii=False, indent=4
+        )
+
     def __repr__(self):
         return self.__str__()
-    
+
     def __eq__(self, other):
         if not isinstance(other, InferenceInput):
             return False
@@ -127,6 +123,7 @@ class InferenceInput:
             "uuid": self.uuid,
             "ref_answer": self.ref_answer,
         }
+
 
 @dataclass
 class InferenceOutput:
@@ -142,14 +139,17 @@ class InferenceOutput:
         raw_output: The raw output data of the request.
         mm_data: The multi-modal data of the request.
     """
-    task: str    
+
+    task: str
+    ref_answer: str | int
     uuid: str
     engine: str
     response: str
     response_token_ids: Optional[List[int]]
     response_logprobs: Optional[PromptLogprobs] | dict[str, list]
     raw_output: Optional[Union[RequestOutput, None]]
-    mm_data: List[MultiModalData] # TODO: left for mm-generation task
+    mm_data: List[MultiModalData]  # TODO: left for mm-generation task
+    lablel: str = None
 
     def __post_init__(self):
         pass
@@ -157,6 +157,7 @@ class InferenceOutput:
     def __init__(
         self,
         task: str,
+        ref_answer: str | int,
         uuid: str,
         response: str,
         engine: str = 'hand',
@@ -166,6 +167,7 @@ class InferenceOutput:
     ):
         self.engine = engine
         self.task = task
+        self.ref_answer = ref_answer
         self.uuid = uuid
         self.response = response
         self.response_token_ids = response_token_ids
@@ -174,11 +176,12 @@ class InferenceOutput:
 
     @classmethod
     def from_vllm_output(
-        cls, task, uuid, vllm_output: RequestOutput, store_raw: bool = False
+        cls, task, ref_answer, uuid, vllm_output: RequestOutput, store_raw: bool = False
     ):
         return cls(
             engine='vllm',
             task=task,
+            ref_answer=ref_answer,
             uuid=uuid,
             response=[output.text for output in vllm_output.outputs],
             response_token_ids=[output.token_ids for output in vllm_output.outputs],
@@ -187,9 +190,7 @@ class InferenceOutput:
         )
 
     @classmethod
-    def from_hf_output(
-        cls, task, uuid, response, hf_output: torch.Tensor, store_raw: bool = False
-    ):
+    def from_hf_output(cls, task, uuid, response, hf_output: torch.Tensor, store_raw: bool = False):
         return cls(
             engine='huggingface',
             task=task,
@@ -198,7 +199,7 @@ class InferenceOutput:
             response_token_ids=hf_output.tolist(),
             raw_output=hf_output if store_raw else None,
         )
-    
+
     def to_dict(self):
         return {
             "task": self.task,
@@ -258,40 +259,51 @@ class InferenceOutput:
     #         f'response_token_ids={self.response_token_ids!r}, '
     #         f'response_logprobs={self.response_logprobs!r})'
     #     )
-    
+
     def __repr__(self):
         return (
             f'InferenceOutput('
+            f'task={self.task!r}, '
             f'engine={self.engine!r}, '
             f'uuid={self.uuid!r}, '
-            f'prompt={self.prompt!r}, '
+            f'ref_answer={self.ref_answer!r}, '
             f'response={self.response!r}, '
             f'response_token_ids={self.response_token_ids!r}, '
             f'response_logprobs={self.response_logprobs!r})'
+            f'raw_output={self.raw_output!r}'
         )
+
 
 @dataclass
 class EvaluationResult:
-    
-    def __init__(self, benchmark_name: str, inference_output: InferenceOutput, extracted_result: dict[str, any] | None, ground_truth: str | dict[str, list] | None, uuid: str):
+
+    def __init__(
+        self,
+        benchmark_name: str,
+        inference_output: InferenceOutput,
+        extracted_result: dict[str, any] | None,
+        ground_truth: str | dict[str, list] | None,
+        uuid: str,
+    ):
         self.benchmark_name = benchmark_name
         self.inference_output = inference_output
         self.extracted_result = extracted_result
         self.ground_truth = ground_truth
         self.uuid = uuid
         self.evaluation_results = {}
-    
+
     def to_dict(self) -> dict:
         return {
             'benchmark_name': self.benchmark_name,
             'inference_output': self.inference_output.to_dict(),
             'extracted_result': self.extracted_result,
             'ground_truth': self.ground_truth,
-            'uuid': self.uuid
+            'uuid': self.uuid,
         }
-    
+
     def update_evaluation_result(self, metric_name: str, metric_result: float):
         self.evaluation_results[metric_name] = metric_result
+
 
 @dataclass
 class SingleInput:
@@ -406,7 +418,6 @@ class EvalOutput:
     evalEngine: str
     input: Union[SingleInput, ArenaInput]
     raw_output: Union[ChatCompletion, Exception, RequestOutput]
-
 
     def __post_init__(self):
         assert self.evalEngine in ['gpt_evaluation', 'arena']
