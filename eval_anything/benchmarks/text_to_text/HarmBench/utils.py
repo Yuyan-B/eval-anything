@@ -1,4 +1,4 @@
-#ref:https://github.com/Libr-AI/do-not-answer/blob/main/do_not_answer/evaluator/gpt.py
+#ref:https://github.com/centerforaisafety/HarmBench/blob/main/eval_utils.py
 import json
 from typing import Any, Dict
 
