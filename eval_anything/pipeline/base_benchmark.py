@@ -28,6 +28,10 @@ BENCHMARK_MODALITY_MAP = {
     'mmvu': 'text_video_to_text',
     'doanythingnow': 'text_to_text',
     'donotanswer': 'text_to_text',
+    'harmbench': 'text_to_text',
+    'redeval': 'text_to_text',
+    'hexphi': 'text_to_text',
+    'latentjailbreak': 'text_to_text',
 }
 
 
