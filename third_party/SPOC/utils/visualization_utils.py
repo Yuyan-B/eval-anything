@@ -237,7 +237,7 @@ class VideoLogging:
         # 1. 相机可见物体
         if camera_seen is not None:
             img_draw.text(
-                (IMAGE_BORDER * 2 + agent_width + (TEXT_OFFSET_H + 180), IMAGE_BORDER * 1 + 120),
+                (IMAGE_BORDER * 2 + agent_width + (TEXT_OFFSET_H + 180), IMAGE_BORDER * 1 + 105),
                 # f"Ingore objects(Unity Bug)",
                 f"Camera Seen Objects",
                 font=full_font_load,

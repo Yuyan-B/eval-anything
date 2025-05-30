@@ -16,6 +16,7 @@ import signal
 import tempfile
 import itertools 
 import gzip
+import json
 import numpy as np
 from tqdm import tqdm
 from datasets import Dataset
