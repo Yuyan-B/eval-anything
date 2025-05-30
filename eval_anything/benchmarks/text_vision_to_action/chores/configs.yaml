@@ -1,6 +1,6 @@
 data_cfgs:
-  dataset_path: /root/eval-anything_/datasets/chores_small
-  house_assets_path: /root/data/houses/objaverse_houses/houses_2023_07_28
+  dataset_path: /path/to/dataset
+  house_assets_path: /path/to/house_assets
   shuffle: true
   seed: 123
   task_type: ObjectNavType
@@ -28,4 +28,4 @@ infer_cfgs:
   skip_done: false
   sampling: sample
 
-output_path: /root/eval-anything_/output
+output_path: /path/to/output

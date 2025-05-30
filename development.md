@@ -82,7 +82,13 @@ python scripts/download_objaverse_houses.py --save_dir /path/to/objaverse_houses
 python scripts/download_dataset.py --save_dir /path/to/dataset
 ```
 
-
+4. 环境
+```
+pip install -e .[vla]
+pip install --extra-index-url https://ai2thor-pypi.allenai.org ai2thor==0+966bd7758586e05d18f6181f459c0e90ba318bec
+pip install -e "git+https://github.com/allenai/allenact.git@d055fc9d4533f086e0340fe0a838ed42c28d932e#egg=allenact&subdirectory=allenact" --no-deps
+pip install -e "git+https://github.com/allenai/allenact.git@d055fc9d4533f086e0340fe0a838ed42c28d932e#egg=allenact_plugins[all]&subdirectory=allenact_plugins" --no-deps
+```
 
 ## Tips
 
