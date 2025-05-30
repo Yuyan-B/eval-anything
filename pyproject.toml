@@ -168,3 +168,37 @@ ignore = [
 
 [project.scripts]
 eval-anything-cli = "eval_anything.cli:main"
+
+[project.optional-dependencies]
+vla = [
+    "nltk @ git+https://github.com/nltk/nltk@582e6e35f0e6c984b44ec49dcb8846d9c011d0a8",
+    "phonemizer",
+    "networkx",
+    "matplotlib>=3.3.1",
+    "h5py",
+    "pyquaternion>=0.9.9",
+    "compress_json",
+    "objaverse",
+    "trimesh",
+    "decorator",
+    "ipdb",
+    "prettytable",
+    "fire",
+    "shapely",
+    "numpy-quaternion",
+    "tensorboardx",
+    "setproctitle",
+    "open-clip-torch",
+    "plotly",
+    "omegaconf",
+    "wheel>=0.36.2",
+    "scipy>=1.5.4",
+    "wget",
+    "pandas",
+    "nbformat",
+    "scikit-image",
+    "torchmetrics",
+    "clip @ git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33#egg=clip",
+    "allenact @ git+https://github.com/allenai/allenact.git@d055fc9d4533f086e0340fe0a838ed42c28d932e#egg=allenact&subdirectory=allenact",
+    "allenact_plugins @ git+https://github.com/allenai/allenact.git@d055fc9d4533f086e0340fe0a838ed42c28d932e#egg=allenact_plugins[all]&subdirectory=allenact_plugins",
+]

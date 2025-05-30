@@ -61,6 +61,29 @@
 4. 运用`utils/mm_data_manager.py`中的工具类为此模态任务定制conversation的形式，例如，`ImageManager.prompt_to_conversation`实现了常见图文输入的conversation构造
 5. 数据加载完成后，推理与评测部分与此前开发过程相同
 
+## VLA相关
+
+1. 配置`objaverse`资源
+```
+python -m objathor.dataset.download_annotations --version 2023_07_28 --path /path/to/objaverse_assets
+python -m objathor.dataset.download_assets --version 2023_07_28 --path /path/to/objaverse_assets
+```
+2. 配置`house`资源
+```
+python scripts/download_objaverse_houses.py --save_dir /path/to/objaverse_houses --subset val
+```
+or
+```
+python scripts/download_objaverse_houses.py --save_dir /path/to/objaverse_houses --subset train
+```
+
+3. 数据集
+```
+python scripts/download_dataset.py --save_dir /path/to/dataset
+```
+
+
+
 ## Tips
 
 - 尽量遵循奥卡姆剃刀原则进行开发，减少对现有函数的重写
