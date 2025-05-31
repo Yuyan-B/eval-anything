@@ -27,7 +27,11 @@ BENCHMARK_MODALITY_MAP = {
     'mmau': 'text_audio_to_text',
     'mmvu': 'text_video_to_text',
     'doanythingnow': 'text_to_text',
-    
+    'donotanswer': 'text_to_text',
+    'harmbench': 'text_to_text',
+    'redeval': 'text_to_text',
+    'hexphi': 'text_to_text',
+    'latentjailbreak': 'text_to_text',
     'gptfuzzer': 'text_to_text',
     'llm_jailbreak_study': 'text_to_text',
     'jbb_behaviors': 'text_to_text',

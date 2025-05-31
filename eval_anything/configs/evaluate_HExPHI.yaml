@@ -9,17 +9,17 @@
     # Benchmark and task names; if task list is empty, all tasks will be evaluated
     benchmarks: {
       # "mmlu": [],
-      "DoNotAnswer": ["DoNotAnswer"],
+      "HExPHI": ["HExPHI"],
       }
     # Number of shots
     n_shot: {
       # "mmlu": 0,
-      "DoNotAnswer": 0,
+      "HExPHI": 0,
       }
     # Chain of thought
     cot: {
       # "mmlu": False,
-      "DoNotAnswer": False,
+      "HExPHI": False,
       }
     # Visualization
     visualization:
@@ -29,9 +29,9 @@
   # Model configuration
   model_cfgs:
     # Pretrained model unique identifier
-    model_id: Qwen2.5-7B-Instruct
+    model_id: Llama-2-7b-chat-hf
     # Pretrained model name or path
-    model_name_or_path: /share/project/buyuyan/model_zoo/Qwen2.5-7B-Instruct
+    model_name_or_path: Llama-2-7b-chat-hf
     # Model type ("LM" or "MM")
     model_type: "LM"
     # Chat template; if not specified, `tokenizer.apply_chat_template()` will be used
@@ -64,6 +64,6 @@
     # Number of GPUs
     num_gpu: 4
     # Available GPU IDs; if not specified, the first num_gpu GPUs will be used
-    gpu_ids: [4,5,6,7]
+    gpu_ids: [0,1,2,3]
     # GPU utilization
     gpu_utilization: 0.5

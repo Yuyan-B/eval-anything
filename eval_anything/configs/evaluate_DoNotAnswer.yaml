@@ -29,9 +29,9 @@
   # Model configuration
   model_cfgs:
     # Pretrained model unique identifier
-    model_id: Qwen2.5-7B-Instruct
+    model_id: Llama-2-7b-chat
     # Pretrained model name or path
-    model_name_or_path: /share/project/buyuyan/model_zoo/Qwen2.5-7B-Instruct
+    model_name_or_path: Llama-2-7b-chat-hf
     # Model type ("LM" or "MM")
     model_type: "LM"
     # Chat template; if not specified, `tokenizer.apply_chat_template()` will be used
