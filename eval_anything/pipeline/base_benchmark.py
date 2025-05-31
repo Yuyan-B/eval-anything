@@ -21,7 +21,6 @@ BENCHMARK_MODALITY_MAP = {
     'ceval': 'text_to_text',
     'humaneval': 'text_to_text',
     'agieval': 'text_to_text',
-    'beavertails': 'text_to_text',
     'mmmu': 'text_image_to_text',
     'mathvision': 'text_image_to_text',
     'mmau': 'text_audio_to_text',
@@ -37,6 +36,15 @@ BENCHMARK_MODALITY_MAP = {
     'jbb_behaviors': 'text_to_text',
     'salad_bench': 'text_to_text',
     'air_bench_2024': 'text_to_text',
+    'chores': 'text_vision_to_action',
+    # 来自 my-dev 的新增映射
+    'advbench': 'text_to_text',
+    'beavertails': 'text_to_text',
+    'cona': 'text_to_text',
+    'cyberattackassistance': 'text_to_text',
+    'cdialbias': 'text_to_text',
+    'bbq': 'text_to_text',
+    'anthropics': 'text_to_text',
     'chores': 'text_vision_to_action'
 }
 

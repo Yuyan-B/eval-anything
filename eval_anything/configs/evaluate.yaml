@@ -42,9 +42,9 @@
     # Whether to trust remote code
     trust_remote_code: True
     # Maximum token length
-    model_max_length: 512
+    model_max_length: 1024 #256
     # Maximum new tokens
-    max_new_tokens: 256
+    max_new_tokens: 1024 #256
     # Number of outputs
     num_output: 1
     # Top-K
