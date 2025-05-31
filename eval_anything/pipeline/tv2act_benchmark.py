@@ -21,24 +21,24 @@ from eval_anything.utils.data_type import InferenceInput, InferenceOutput, Evalu
 from eval_anything.utils.utils import pair_data_via_uuid
 from eval_anything.utils.register import BenchmarkRegistry
 
-from third_party.SPOC.environment.stretch_controller import StretchController
-from third_party.SPOC.utils.constants.stretch_initialization_utils import (
+from eval_anything.third_party.SPOC.environment.stretch_controller import StretchController
+from eval_anything.third_party.SPOC.utils.constants.stretch_initialization_utils import (
     STRETCH_ENV_ARGS,
 )
-from third_party.SPOC.tasks.abstract_task import AbstractSafeTask
-from third_party.SPOC.spoc_model.agent import AbstractAgent
-from third_party.SPOC.spoc_model.early_fusion_tsfm_models import EarlyFusionCnnTransformer
+from eval_anything.third_party.SPOC.tasks.abstract_task import AbstractSafeTask
+from eval_anything.third_party.SPOC.spoc_model.agent import AbstractAgent
+from eval_anything.third_party.SPOC.spoc_model.early_fusion_tsfm_models import EarlyFusionCnnTransformer
 
-from third_party.SPOC.tasks.task_specs import TaskSpecList
-from third_party.SPOC.tasks.multi_task_eval_sampler import MultiTaskSampler
-from third_party.SPOC.utils.visualization_utils import get_top_down_frame, VideoLogging
-from third_party.SPOC.utils.type_utils import THORActions
-from third_party.SPOC.utils.data_generation_utils.mp4_utils import save_frames_to_mp4
+from eval_anything.third_party.SPOC.tasks.task_specs import TaskSpecList
+from eval_anything.third_party.SPOC.tasks.multi_task_eval_sampler import MultiTaskSampler
+from eval_anything.third_party.SPOC.utils.visualization_utils import get_top_down_frame, VideoLogging
+from eval_anything.third_party.SPOC.utils.type_utils import THORActions
+from eval_anything.third_party.SPOC.utils.data_generation_utils.mp4_utils import save_frames_to_mp4
 
-from third_party.SPOC.utils.task_datagen_utils import (
+from eval_anything.third_party.SPOC.utils.task_datagen_utils import (
     get_core_task_args,
 )
-from third_party.SPOC.utils.online_evaluation_types_and_utils import (
+from eval_anything.third_party.SPOC.utils.online_evaluation_types_and_utils import (
     calc_trajectory_room_visitation,
 )
 @BenchmarkRegistry.register("text_vision_to_action")

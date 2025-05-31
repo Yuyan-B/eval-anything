@@ -91,7 +91,10 @@ pip install --extra-index-url https://ai2thor-pypi.allenai.org ai2thor==0+966bd7
 pip install -e "git+https://github.com/allenai/allenact.git@d055fc9d4533f086e0340fe0a838ed42c28d932e#egg=allenact&subdirectory=allenact" --no-deps
 pip install -e "git+https://github.com/allenai/allenact.git@d055fc9d4533f086e0340fe0a838ed42c28d932e#egg=allenact_plugins[all]&subdirectory=allenact_plugins" --no-deps
 ```
-
+5. 运行
+```
+bash scripts/run_vla.sh
+```
 ## Tips
 
 - 尽量遵循奥卡姆剃刀原则进行开发，减少对现有函数的重写
