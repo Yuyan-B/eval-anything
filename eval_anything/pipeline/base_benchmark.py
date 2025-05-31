@@ -27,6 +27,12 @@ BENCHMARK_MODALITY_MAP = {
     'mmau': 'text_audio_to_text',
     'mmvu': 'text_video_to_text',
     'doanythingnow': 'text_to_text',
+    
+    'gptfuzzer': 'text_to_text',
+    'llm_jailbreak_study': 'text_to_text',
+    'jbb_behaviors': 'text_to_text',
+    'salad_bench': 'text_to_text',
+    'air_bench_2024': 'text_to_text',
     'chores': 'text_vision_to_action'
 }
 
