@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 from transformers import AutoConfig, AutoModel
 from accelerate import Accelerator
 
-from third_party.SPOC.spoc_model.early_fusion_tsfm_models import (
+from eval_anything.third_party.SPOC.spoc_model.early_fusion_tsfm_models import (
     EarlyFusionCnnTransformer,
     EarlyFusionCnnTransformerAgent,
 )

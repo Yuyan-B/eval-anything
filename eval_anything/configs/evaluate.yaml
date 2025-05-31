@@ -31,14 +31,14 @@
     # Pretrained model unique identifier
     model_id: Qwen2.5-7B-Instruct
     # Pretrained model name or path
-    model_name_or_path: /share/project/buyuyan/model_zoo/Qwen2.5-7B-Instruct
+    model_name_or_path: gpt-4o
     # Model type ("LM" or "MM")
     model_type: "LM"
     # Chat template; if not specified, `tokenizer.apply_chat_template()` will be used
     chat_template: null
   infer_cfgs:
     # Inference backend
-    infer_backend: "vllm"
+    infer_backend: "api"
     # Whether to trust remote code
     trust_remote_code: True
     # Maximum token length

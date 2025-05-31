@@ -1,4 +1,7 @@
 import importlib
+import os
+import sys
+
 
 benchmark_modules = [
     "benchmarks.text_to_text.gsm8k.eval",
@@ -15,8 +18,12 @@ benchmark_modules = [
     "benchmarks.text_image_to_text.mathvision.eval",
     "benchmarks.text_audio_to_text.mmau.eval",
     "benchmarks.text_video_to_text.mmvu.eval",
-    "benchmarks.text_vision_to_action.chores.eval",
 ]
-
+script_name = os.path.basename(sys.argv[0])
+if script_name == "eval_vla.sh":
+    benchmark_modules = [
+        "benchmarks.text_vision_to_action.chores.eval",
+    ]
+    
 for module in benchmark_modules:
     importlib.import_module(module)
