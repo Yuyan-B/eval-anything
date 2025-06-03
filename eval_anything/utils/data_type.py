@@ -149,7 +149,7 @@ class InferenceOutput:
     response_logprobs: Optional[PromptLogprobs] | dict[str, list]
     raw_output: Optional[Union[RequestOutput, None]]
     mm_data: List[MultiModalData]  # TODO: left for mm-generation task
-    lablel: str = None
+    label: str = None
 
     def __post_init__(self):
         pass

@@ -32,6 +32,8 @@ BENCHMARK_MODALITY_MAP = {
     'redeval': 'text_to_text',
     'hexphi': 'text_to_text',
     'latentjailbreak': 'text_to_text',
+    'maliciousinstruct': 'text_to_text',
+    'maliciousinstructions': 'text_to_text',
     'gptfuzzer': 'text_to_text',
     'llm_jailbreak_study': 'text_to_text',
     'jbb_behaviors': 'text_to_text',
