@@ -1,18 +1,16 @@
-from eval_anything.utils.data_type import InferenceInput, InferenceOutput, EvaluationResult
-from eval_anything.pipeline.t2t_benchmark import T2TBenchmark
-from collections import namedtuple
-from eval_anything.models.base_model import BaseModel
-from eval_anything.utils.cache_manager import CacheManager
-from eval_anything.utils.logger import EvalLogger
-from huggingface_hub import hf_hub_download
-from eval_anything.utils.cached_requests import cached_requests
-from eval_anything.benchmarks.text_to_text.MaliciousInstructions.utils import AbsoluteHarmfulnessPredictor, ConversationBuilder
-from typing import Optional
-import os
-from eval_anything.utils.register import BenchmarkRegistry
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
 import json
+from collections import namedtuple
+
+from eval_anything.benchmarks.text_to_text.MaliciousInstructions.utils import (
+    AbsoluteHarmfulnessPredictor,
+)
+from eval_anything.models.base_model import BaseModel
+from eval_anything.pipeline.t2t_benchmark import T2TBenchmark
+from eval_anything.utils.cache_manager import CacheManager
+from eval_anything.utils.data_type import EvaluationResult, InferenceInput, InferenceOutput
+from eval_anything.utils.logger import EvalLogger
+from eval_anything.utils.register import BenchmarkRegistry
+
 
 @BenchmarkRegistry.register('MaliciousInstructions')
 class MaliciousInstructions(T2TBenchmark):
@@ -29,28 +27,28 @@ class MaliciousInstructions(T2TBenchmark):
         super().__init__(
             model, eval_cfgs, model_cfgs, infer_cfgs, output_path, cache_manager, logger
         )
-        self.benchmark_name = "MaliciousInstructions"
+        self.benchmark_name = 'MaliciousInstructions'
         self.benchmark_cfgs = self.get_benchmark_cfgs(self.benchmark_name)
-        setup="redteam-osst"  # or "redteam-osst"
-        self.harmfulness_predictor  = AbsoluteHarmfulnessPredictor(setup, device="cuda")
+        setup = 'redteam-osst'  # or "redteam-osst"
+        self.harmfulness_predictor = AbsoluteHarmfulnessPredictor(setup, device='cuda')
 
     def to_InferenceInput(self, task_list: list[str]) -> dict[str, list[InferenceInput]]:
         """Convert a task list to a list of InferenceInput dict instances"""
-        
-        with open("/share/project/buyuyan/eval-anything-local/data/MaliciousInstructions.json") as f:
-            all_prompts = json.load(f)["instructions"]
+
+        with open('eval-anything-local/data/MaliciousInstructions.json') as f:
+            all_prompts = json.load(f)['instructions']
 
         inference_inputs = []
         # input_prompt = "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\n{instruction}\n\n### Response:\n"
-        
+
         for item in all_prompts:
             inference_inputs.append(
                 InferenceInput(
-                    task="MaliciousInstructions",
-                    conversation=[{"role": "user", "content": item}],
+                    task='MaliciousInstructions',
+                    conversation=[{'role': 'user', 'content': item}],
                     ref_answer=None,
                     metadata={
-                        "prompt": item,
+                        'prompt': item,
                     },
                 )
             )
@@ -63,7 +61,7 @@ class MaliciousInstructions(T2TBenchmark):
         """Convert a InferenceInput dict instances to a InferenceOutput dict instances"""
         inference_outputs = super().to_InferenceOutput(inference_inputs)
 
-        prompts = [item.metadata["prompt"] for item in inference_inputs['MaliciousInstructions']]
+        prompts = [item.metadata['prompt'] for item in inference_inputs['MaliciousInstructions']]
         responses = [item.response[0] for item in inference_outputs['MaliciousInstructions']]
         # print(responses)
 
@@ -72,7 +70,7 @@ class MaliciousInstructions(T2TBenchmark):
         for output_item, eval_item in zip(inference_outputs['MaliciousInstructions'], eval_scores):
             try:
                 output_item.label = eval_item
-            except Exception as e:
+            except Exception:
                 output_item.label = None
         return inference_outputs
 
@@ -86,19 +84,22 @@ class MaliciousInstructions(T2TBenchmark):
         overall results
         """
 
-        all_scores=0
+        all_scores = 0
         all_valid_count = 0
         for output_item in inference_outputs['MaliciousInstructions']:
-            if output_item.label is not None :
+            if output_item.label is not None:
                 all_scores += output_item.label
                 all_valid_count += 1
-        
+
         mean_score = all_scores / all_valid_count
 
-        self.display_benchmark_results(self.benchmark_name, {"MaliciousInstructions": {"Harmfulness Score": {"default": mean_score}}})
+        self.display_benchmark_results(
+            self.benchmark_name,
+            {'MaliciousInstructions': {'Harmfulness Score': {'default': mean_score}}},
+        )
 
         return (
             inference_outputs,
-            {"MaliciousInstructions": {"Harmfulness Score": mean_score}},
+            {'MaliciousInstructions': {'Harmfulness Score': mean_score}},
             {},
         )
