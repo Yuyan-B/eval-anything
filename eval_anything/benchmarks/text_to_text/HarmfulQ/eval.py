@@ -13,15 +13,15 @@
 # limitations under the License.
 # ==============================================================================
 
+import json
 import os
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
-from datasets import load_dataset
 from tqdm import tqdm
 
-from eval_anything.benchmarks.text_to_text.LatentJailbreak.utils import EVALUATE_PROMPT, parse_json
+from eval_anything.benchmarks.text_to_text.HarmfulQ.utils import EVALUATE_PROMPT, parse_json
 from eval_anything.models.base_model import BaseModel
 from eval_anything.pipeline.t2t_benchmark import T2TBenchmark
 from eval_anything.utils.cache_manager import CacheManager
@@ -72,6 +72,7 @@ def gpt_evaluate(
             api_key=api_key,
             api_base=api_base,
             cache_dir=cache_dir,
+            timeout=300,
         )
         return extraction
 
@@ -96,8 +97,8 @@ def gpt_evaluate(
     return [results[i] for i in range(len(inference_inputs))]
 
 
-@BenchmarkRegistry.register('LatentJailbreak')
-class LatentJailbreakEvaluator(T2TBenchmark):
+@BenchmarkRegistry.register('HarmfulQ')
+class HarmfulQEvaluator(T2TBenchmark):
     def __init__(
         self,
         model: BaseModel,
@@ -111,32 +112,28 @@ class LatentJailbreakEvaluator(T2TBenchmark):
         super().__init__(
             model, eval_cfgs, model_cfgs, infer_cfgs, output_path, cache_manager, logger
         )
-        self.benchmark_name = 'LatentJailbreak'
+        self.benchmark_name = 'HarmfulQ'
         self.benchmark_cfgs = self.get_benchmark_cfgs(self.benchmark_name)
 
     def to_InferenceInput(self, task_list: list[str]) -> dict[str, list[InferenceInput]]:
         """Convert a task list to a list of InferenceInput dict instances"""
-        dataset = load_dataset(
-            'json',
-            data_dir='eval-anything/eval_anything/eval-anything-local/data/',
-            data_files='latent_jailbreak_data.json',
-            split='train',
-        )
+        # 直接读取HarmfulQ.json文件
+        json_file_path = '/share/project/buyuyan/eval-anything/eval_anything/eval-anything-local/data/HarmfulQ.json'
+        with open(json_file_path, encoding='utf-8') as f:
+            questions = json.load(f)
+
         inference_inputs = []
-        for item in dataset:
+        for question in questions:
             inference_inputs.append(
                 InferenceInput(
-                    task='LatentJailbreak',
-                    conversation=[{'role': 'user', 'content': item['prompt']}],
+                    task='HarmfulQ',
+                    conversation=[{'role': 'user', 'content': question}],
                     ref_answer=None,
-                    metadata={
-                        'prompt': item['prompt'],
-                        'category': item['category'],
-                    },
+                    metadata={'prompt': question},
                 )
             )
 
-        return {'LatentJailbreak': inference_inputs}
+        return {'HarmfulQ': inference_inputs}
 
     def to_InferenceOutput(
         self, inference_inputs: dict[str, list[InferenceInput]]
@@ -144,12 +141,12 @@ class LatentJailbreakEvaluator(T2TBenchmark):
         """Convert a InferenceInput dict instances to a InferenceOutput dict instances"""
         inference_outputs = super().to_InferenceOutput(inference_inputs)
 
-        safe_test_question = inference_inputs['LatentJailbreak']
-        llm_response = inference_outputs['LatentJailbreak']
+        safe_test_question = inference_inputs['HarmfulQ']
+        llm_response = inference_outputs['HarmfulQ']
         eval_response = gpt_evaluate(
             safe_test_question, llm_response, cache_dir=self.eval_cfgs.cache_dir
         )
-        for output_item, eval_item in zip(inference_outputs['LatentJailbreak'], eval_response):
+        for output_item, eval_item in zip(inference_outputs['HarmfulQ'], eval_response):
             eval_data = parse_json(eval_item)
             try:
                 output_item.label = {
@@ -175,7 +172,7 @@ class LatentJailbreakEvaluator(T2TBenchmark):
         safe_label_count = 0
         following_label_count = 0
         all_label_count = 0
-        for output_item in inference_outputs['LatentJailbreak']:
+        for output_item in inference_outputs['HarmfulQ']:
             if (
                 output_item.label['is_safe'] is not None
                 and output_item.label['is_following'] is not None
@@ -192,7 +189,7 @@ class LatentJailbreakEvaluator(T2TBenchmark):
         self.display_benchmark_results(
             self.benchmark_name,
             {
-                'LatentJailbreak': {
+                'HarmfulQ': {
                     'Safety Rate': {'default': safe_rate},
                     'Following Rate': {'default': following_rate},
                 }
@@ -202,7 +199,7 @@ class LatentJailbreakEvaluator(T2TBenchmark):
         return (
             inference_outputs,
             {
-                'LatentJailbreak': {
+                'HarmfulQ': {
                     'Safety Rate': {'default': safe_rate},
                     'Following Rate': {'default': following_rate},
                 }
