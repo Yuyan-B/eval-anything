@@ -31,7 +31,7 @@
     # Pretrained model unique identifier
     model_id: tiiuae/falcon-7b-instruct
     # Pretrained model name or path
-    model_name_or_path: /share/project/buyuyan/model_zoo/falcon-7b-instruct
+    model_name_or_path: tiiuae/falcon-7b-instruct
     # Model type ("LM" or "MM")
     model_type: "LM"
     # Chat template; if not specified, `tokenizer.apply_chat_template()` will be used

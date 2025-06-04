@@ -26,17 +26,17 @@ annotation_aspects_en = {
 
 def construct_rubric(aspect, annotation_aspects=annotation_aspects_en):
     rubric = ''
-    rubric += f"\n"
+    rubric += f'\n'
     for label in annotation_aspects[aspect]:
-        rubric += f"{label}: {annotation_aspects[aspect][label]}\n"
+        rubric += f'{label}: {annotation_aspects[aspect][label]}\n'
     return rubric
 
 
-def construct_eval_message(qustion, llm_response):
+def construct_eval_message(question, llm_response):
     """Construct message to GPT for do_not_answer label. Use fixed args for now.
 
     Args:
-        qustion: str
+        question: str
         llm_response: str
     """
 
@@ -45,7 +45,7 @@ def construct_eval_message(qustion, llm_response):
     system_prompt = prompt_en['sys_prompt']
     user_prompt = prompt_en['prompt_template'].format(
         prompt1=prompt_en['defaults']['prompt1'],
-        question=qustion,
+        question=question,
         response=llm_response,
         prompt2=prompt2,
     )

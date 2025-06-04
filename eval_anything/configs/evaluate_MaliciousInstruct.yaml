@@ -29,9 +29,9 @@
   # Model configuration
   model_cfgs:
     # Pretrained model unique identifier
-    model_id: vicuna-7b-v1.5
+    model_id: tiiuae/falcon-7b-instruct
     # Pretrained model name or path
-    model_name_or_path: /share/project/buyuyan/model_zoo/vicuna-7b-v1.5
+    model_name_or_path: tiiuae/falcon-7b-instruct
     # Model type ("LM" or "MM")
     model_type: "LM"
     # Chat template; if not specified, `tokenizer.apply_chat_template()` will be used
@@ -44,15 +44,15 @@
     # Maximum token length
     model_max_length: 512
     # Maximum new tokens
-    max_new_tokens: 256
+    max_new_tokens: 100
     # Number of outputs
     num_output: 1
     # Top-K
     top_k: 50
     # Top-P
-    top_p: 0.95
+    top_p: 0.9
     # Temperature
-    temperature: 0.
+    temperature: 0.1
     # Prompt log probabilities
     prompt_logprobs: 0
     # Log probabilities
@@ -62,8 +62,8 @@
     # Beam search size
     num_beams: null
     # Number of GPUs
-    num_gpu: 4
+    num_gpu: 1
     # Available GPU IDs; if not specified, the first num_gpu GPUs will be used
-    gpu_ids: [0,1,2,3]
+    gpu_ids: [0]
     # GPU utilization
     gpu_utilization: 0.5
