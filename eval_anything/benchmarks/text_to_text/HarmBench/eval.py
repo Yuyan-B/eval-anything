@@ -125,7 +125,7 @@ class HarmBenchEvaluator(T2TBenchmark):
         """Convert a task list to a list of InferenceInput dict instances"""
         dataset = load_dataset(
             'csv',
-            data_files='eval-anything/eval_anything/benchmarks/local_safe_eval_data/harmbench_behaviors_text_all.csv',
+            data_files='eval-anything/eval_anything/eval-anything-local/data/harmbench_behaviors_text_all.csv',
             split='train',
         )
 

@@ -118,7 +118,7 @@ class LatentJailbreakEvaluator(T2TBenchmark):
         """Convert a task list to a list of InferenceInput dict instances"""
         dataset = load_dataset(
             'json',
-            data_dir='eval-anything/eval_anything/benchmarks/local_safe_eval_data/',
+            data_dir='eval-anything/eval_anything/eval-anything-local/data/',
             data_files='latent_jailbreak_data.json',
             split='train',
         )
