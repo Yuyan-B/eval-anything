@@ -243,7 +243,7 @@ class VideoLogging:
         if camera_seen is not None:
             img_draw.text(
                 (IMAGE_BORDER * 2 + agent_width + (TEXT_OFFSET_H + 180), IMAGE_BORDER * 1 + 105),
-                # f"Ingore objects(Unity Bug)",
+                # f"Ignore objects(Unity Bug)",
                 f'Camera Seen Objects',
                 font=full_font_load,
                 fill='black',
@@ -478,7 +478,6 @@ class VideoLogging:
         if ignore_objects_name is not None:
             img_draw.text(
                 (IMAGE_BORDER * 2 + agent_width + (TEXT_OFFSET_H + 580), IMAGE_BORDER * 1),
-                # f"Ingore objects(Unity Bug)",
                 f'Ignore Objects',
                 font=full_font_load,
                 fill='black',
@@ -499,7 +498,6 @@ class VideoLogging:
         if ignore_objects_name is not None:
             img_draw.text(
                 (IMAGE_BORDER * 2 + agent_width + (TEXT_OFFSET_H + 720), IMAGE_BORDER * 1),
-                # f"Ingore objects(Unity Bug)",
                 f'Cost Objects',
                 font=full_font_load,
                 fill='black',

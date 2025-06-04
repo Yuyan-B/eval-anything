@@ -1,10 +1,11 @@
 # ref:https://github.com/Princeton-SysML/Jailbreak_LLM/blob/main/evaluate.py
-import numpy as np
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+import os
 import subprocess
 import sys
 from pathlib import Path
-import os
+
+import numpy as np
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
 
 # ===== 拒绝回答的关键词列表 =====
@@ -114,46 +115,48 @@ def get_eval_scores(prompt, res, evaluator, matching_only):
         # 6. 综合评分：分类器分数 × 长度检查 × 字符串匹配
         return np.asarray(ori_scores) * np.asarray(not_short) * np.asarray(no_matching)
 
+
 def download_malicious_instruct_models(
     drive_folder_id='1G0bxoe7lNfpaEQKqBb3JW5M0db9GJ5BR',
     local_dir='eval-anything-local/models/MaliciousInstruct/',
-    force_download=False
+    force_download=False,
 ):
     """
     自动下载MaliciousInstruct评估模型从Google Drive
-    
+
     Args:
         drive_folder_id (str): Google Drive文件夹ID
         local_dir (str): 本地保存目录
         force_download (bool): 是否强制重新下载
-    
+
     Returns:
         bool: 下载是否成功
     """
-    
+
     def install_gdown():
         """安装gdown库"""
         try:
-            import gdown
+            pass
+
             return True
         except ImportError:
-            print("gdown库未安装，正在安装...")
+            print('gdown库未安装，正在安装...')
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", "gdown"])
-                import gdown
+                subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'gdown'])
+
                 return True
             except Exception as e:
-                print(f"安装gdown失败: {e}")
+                print(f'安装gdown失败: {e}')
                 return False
-    
+
     def check_models_exist(local_dir):
         """检查模型文件是否已存在"""
         required_dirs = ['evaluator', 'scorer']
         local_path = Path(local_dir)
-        
+
         if not local_path.exists():
             return False
-            
+
         for dir_name in required_dirs:
             dir_path = local_path / dir_name
             if not dir_path.exists():
@@ -163,53 +166,49 @@ def download_malicious_instruct_models(
             if not any((dir_path / f).exists() for f in model_files):
                 return False
         return True
-    
+
     # 检查是否已有模型文件
     if not force_download and check_models_exist(local_dir):
-        print(f"模型文件已存在于 {local_dir}，跳过下载")
+        print(f'模型文件已存在于 {local_dir}，跳过下载')
         return True
-    
+
     # 安装gdown
     if not install_gdown():
         return False
-    
+
     import gdown
-    
+
     # 创建本地目录
     local_path = Path(local_dir)
     local_path.mkdir(parents=True, exist_ok=True)
-    
+
     try:
-        print(f"开始从Google Drive下载模型到 {local_dir}")
-        
+        print(f'开始从Google Drive下载模型到 {local_dir}')
+
         # 下载整个文件夹
-        folder_url = f"https://drive.google.com/drive/folders/{drive_folder_id}"
-        
+        folder_url = f'https://drive.google.com/drive/folders/{drive_folder_id}'
+
         # 使用gdown下载文件夹
-        gdown.download_folder(
-            folder_url,
-            output=str(local_path),
-            quiet=False,
-            use_cookies=False
-        )
-        
-        print("下载完成！")
-        
+        gdown.download_folder(folder_url, output=str(local_path), quiet=False, use_cookies=False)
+
+        print('下载完成！')
+
         # 验证下载的文件
         if check_models_exist(local_dir):
-            print("模型文件验证成功")
+            print('模型文件验证成功')
             return True
         else:
-            print("警告：下载的文件不完整，请检查")
+            print('警告：下载的文件不完整，请检查')
             return False
-            
+
     except Exception as e:
-        print(f"下载过程中出现错误: {e}")
-        print("请尝试以下解决方案：")
-        print("1. 检查网络连接")
-        print("2. 确认Google Drive链接可访问")
-        print("3. 手动下载文件并解压到指定目录")
+        print(f'下载过程中出现错误: {e}')
+        print('请尝试以下解决方案：')
+        print('1. 检查网络连接')
+        print('2. 确认Google Drive链接可访问')
+        print('3. 手动下载文件并解压到指定目录')
         return False
+
 
 def init_evaluator(
     evaluator_path='eval-anything-local/models/MaliciousInstruct/evaluator',

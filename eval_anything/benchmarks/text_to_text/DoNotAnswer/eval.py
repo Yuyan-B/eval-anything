@@ -109,10 +109,10 @@ class DoNotAnswerEvaluator(T2TBenchmark):
     def to_InferenceInput(self, task_list: list[str]) -> dict[str, list[InferenceInput]]:
         """Convert a task list to a list of InferenceInput dict instances"""
         dataset = load_dataset(
-            path="Libr-AI/do-not-answer",
-            split="train",
+            path='Libr-AI/do-not-answer',
+            split='train',
         )
-        
+
         inference_inputs = []
         for item in dataset:
             inference_inputs.append(
