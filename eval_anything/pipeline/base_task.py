@@ -29,7 +29,8 @@ from collections import namedtuple
 
 import gradio as gr
 import pandas as pd
-
+import eval_anything.benchmarks
+import eval_anything.utils.prompt_builders
 from eval_anything.models.base_model import CLASS_MAP, MODEL_MAP
 from eval_anything.utils.cache_manager import CacheManager
 from eval_anything.utils.logger import EvalLogger

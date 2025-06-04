@@ -15,7 +15,7 @@
 
 dataset:
   name: DoNotAnswer
-  path: eval-anything/eval_anything/benchmarks/local_safe_eval_data/DoNotAnswer_data_en.csv
+  path: LibrAI/do-not-answer
   split: train
   size:
   modality: text-to-text
