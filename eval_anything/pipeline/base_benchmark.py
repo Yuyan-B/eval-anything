@@ -68,6 +68,7 @@ BENCHMARK_MODALITY_MAP = {
     'bbq': 'text_to_text',
     'anthropics': 'text_to_text',
     'chores': 'text_vision_to_action',
+    'deceptionbench': 'text_to_text',
 }
 
 
