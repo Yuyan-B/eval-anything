@@ -1,15 +1,30 @@
-from abc import ABC, abstractmethod
-from typing import Dict, List
-from collections import namedtuple
+# Copyright 2025 PKU-Alignment Team. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 
-from eval_anything.utils.logger import EvalLogger
-from eval_anything.utils.data_type import InferenceInput, InferenceOutput, EvaluationResult
+from abc import ABC, abstractmethod
+from collections import namedtuple
+from typing import Dict, List
+
 from eval_anything.evaluate_tools.metrics import MetricCalculator, OverallMetricCalculator
-from eval_anything.evaluate_tools.metrics import MetricCalculator, OverallMetricCalculator
-from eval_anything.utils.utils import read_cfgs_from_yaml, pair_data_via_uuid, dict_to_namedtuple
-from eval_anything.utils.cache_manager import CacheManager
 from eval_anything.models.base_model import BaseModel
-from eval_anything.utils.register import BenchmarkRegistry, AnswerExtractorRegistry
+from eval_anything.utils.cache_manager import CacheManager
+from eval_anything.utils.data_type import EvaluationResult, InferenceInput, InferenceOutput
+from eval_anything.utils.logger import EvalLogger
+from eval_anything.utils.register import AnswerExtractorRegistry, BenchmarkRegistry
+from eval_anything.utils.utils import dict_to_namedtuple, pair_data_via_uuid, read_cfgs_from_yaml
+
 
 BENCHMARK_MODALITY_MAP = {
     'gsm8k': 'text_to_text',
@@ -21,16 +36,48 @@ BENCHMARK_MODALITY_MAP = {
     'ceval': 'text_to_text',
     'humaneval': 'text_to_text',
     'agieval': 'text_to_text',
-    'beavertails': 'text_to_text',
     'mmmu': 'text_image_to_text',
     'mathvision': 'text_image_to_text',
     'mmau': 'text_audio_to_text',
     'mmvu': 'text_video_to_text',
     'doanythingnow': 'text_to_text',
+    'donotanswer': 'text_to_text',
+    'harmbench': 'text_to_text',
+    'redeval': 'text_to_text',
+    'hexphi': 'text_to_text',
+    'latentjailbreak': 'text_to_text',
+    'maliciousinstruct': 'text_to_text',
+    'maliciousinstructions': 'text_to_text',
+    'harmfulq': 'text_to_text',
+    'gptfuzzer': 'text_to_text',
+    'llm_jailbreak_study': 'text_to_text',
+    'jbb_behaviors': 'text_to_text',
+    'salad_bench': 'text_to_text',
+    'air_bench_2024': 'text_to_text',
+    'aegis_aicontent_safety_dataset': 'text_to_text',
+    's_eval': 'text_to_text',
+    'fakealignment': 'text_to_text',
+    'flames': 'text_to_text',
+    'xsafety': 'text_to_text',
+    'jade_db': 'text_to_text',
+    'moralbench': 'text_to_text',
+    'chores': 'text_vision_to_action',
+    # 来自 my-dev 的新增映射
+    'advbench': 'text_to_text',
+    'beavertails': 'text_to_text',
+    'cona': 'text_to_text',
+    'cyberattackassistance': 'text_to_text',
+    'cdialbias': 'text_to_text',
+    'bbq': 'text_to_text',
+    'confaide': 'text_to_text',
+    'decodingtrust': 'text_to_text',
+    'anthropics': 'text_to_text',
+    'chores': 'text_vision_to_action',
+    'deceptionbench': 'text_to_text',
 }
 
 
-@BenchmarkRegistry.register("base")
+@BenchmarkRegistry.register('base')
 class BaseBenchmark(ABC):
 
     def __init__(
@@ -51,7 +98,7 @@ class BaseBenchmark(ABC):
         self.logger = logger
         self.cache_manager = cache_manager
         self.enable_cache = True if cache_manager else False
-        self.benchmark_name = "base"
+        self.benchmark_name = 'base'
 
     def get_benchmark_cfgs(self, benchmark_name: str) -> dict:
         """Get benchmark configs from yaml file in benchmark folder
@@ -79,7 +126,6 @@ class BaseBenchmark(ABC):
         Returns:
             dataloader (BaseDataLoader): dataloader
         """
-        pass
 
     def to_InferenceInput(self, task_list: list[str]) -> dict[str, list[InferenceInput]]:
         """Convert a task list to a InferenceInput dict instances"""
@@ -296,10 +342,10 @@ class BaseBenchmark(ABC):
         )
         self.logger.log('info', '++++++++++++++++++++++++++++++++++++')
         self.logger.log('info', f'Benchmark: {benchmark_name}')
-        self.logger.log('info', f"model_id: {self.model_cfgs.model_id},")
-        self.logger.log('info', f"num_fewshot: {self.eval_cfgs.n_shot._asdict()[benchmark_name]},")
+        self.logger.log('info', f'model_id: {self.model_cfgs.model_id},')
+        self.logger.log('info', f'num_fewshot: {self.eval_cfgs.n_shot._asdict()[benchmark_name]},')
         self.logger.log(
-            'info', f"chain_of_thought: {self.eval_cfgs.cot._asdict()[benchmark_name]},"
+            'info', f'chain_of_thought: {self.eval_cfgs.cot._asdict()[benchmark_name]},'
         )
         self.logger.log('info', '++++++++++++++++++++++++++++++++++++')
 
@@ -318,4 +364,3 @@ class BaseBenchmark(ABC):
             inputs (dict[str, List[InferenceInput]]): evaluation inputs
             results (dict[str, List[EvaluationResult]]): evaluation results
         """
-        pass

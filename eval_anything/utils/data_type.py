@@ -1,3 +1,18 @@
+# Copyright 2025 PKU-Alignment Team. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 """
 数据类型定义
 InferenceInput: 存储经过dataloader处理后的数据
@@ -6,16 +21,18 @@ EvaluationResult: 存储评估结果
 TODO 还需适配
 """
 
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Union, Any
 import json
+from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, List, Optional, Union
+
+import numpy as np
 import PIL
 import torch
 from openai.types.chat.chat_completion import ChatCompletion
 from vllm.outputs import RequestOutput
 from vllm.sequence import PromptLogprobs
-from enum import Enum
-import numpy as np
+
 from eval_anything.utils.uuid import UUIDGenerator
 
 
@@ -25,11 +42,11 @@ class RewardModelOutput:
 
 
 class ModalityType(Enum):
-    TEXT = "text"
-    IMAGE = "image"
-    VIDEO = "video"
-    AUDIO = "audio"
-    VISION = "vision"  # For Imagebind
+    TEXT = 'text'
+    IMAGE = 'image'
+    VIDEO = 'video'
+    AUDIO = 'audio'
+    VISION = 'vision'  # For Imagebind
 
     def __str__(self):
         return self.value
@@ -67,7 +84,7 @@ class MultiModalData:
         elif isinstance(self.file, np.ndarray):
             return ModalityType.AUDIO
         else:
-            raise ValueError(f"Unsupported file type: {type(self.file)}")
+            raise ValueError(f'Unsupported file type: {type(self.file)}')
 
 
 @dataclass
@@ -101,11 +118,11 @@ class InferenceInput:
         self.metadata = metadata or {}  # Store benchmark-specific data
 
         self.uuid_generator = UUIDGenerator()
-        self.uuid = self.uuid_generator({"task": self.task, "conversation": self.conversation})
+        self.uuid = self.uuid_generator({'task': self.task, 'conversation': self.conversation})
 
     def __str__(self):
         return json.dumps(
-            {"task": self.task, "conversation": self.conversation}, ensure_ascii=False, indent=4
+            {'task': self.task, 'conversation': self.conversation}, ensure_ascii=False, indent=4
         )
 
     def __repr__(self):
@@ -118,10 +135,10 @@ class InferenceInput:
 
     def to_dict(self):
         return {
-            "task": self.task,
-            "conversation": self.conversation,
-            "uuid": self.uuid,
-            "ref_answer": self.ref_answer,
+            'task': self.task,
+            'conversation': self.conversation,
+            'uuid': self.uuid,
+            'ref_answer': self.ref_answer,
         }
 
 
@@ -149,7 +166,7 @@ class InferenceOutput:
     response_logprobs: Optional[PromptLogprobs] | dict[str, list]
     raw_output: Optional[Union[RequestOutput, None]]
     mm_data: List[MultiModalData]  # TODO: left for mm-generation task
-    lablel: str = None
+    label: str = None
 
     def __post_init__(self):
         pass
@@ -202,10 +219,10 @@ class InferenceOutput:
 
     def to_dict(self):
         return {
-            "task": self.task,
-            "uuid": self.uuid,
-            "response": self.response,
-            "engine": self.engine,
+            'task': self.task,
+            'uuid': self.uuid,
+            'response': self.response,
+            'engine': self.engine,
         }
 
     # TODO
@@ -263,12 +280,14 @@ class InferenceOutput:
     def __repr__(self):
         return (
             f'InferenceOutput('
+            f'task={self.task!r}, '
             f'engine={self.engine!r}, '
             f'uuid={self.uuid!r}, '
-            f'prompt={self.prompt!r}, '
+            f'ref_answer={self.ref_answer!r}, '
             f'response={self.response!r}, '
             f'response_token_ids={self.response_token_ids!r}, '
             f'response_logprobs={self.response_logprobs!r})'
+            f'raw_output={self.raw_output!r}'
         )
 
 

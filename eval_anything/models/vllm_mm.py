@@ -1,16 +1,32 @@
+# Copyright 2025 PKU-Alignment Team. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 """
 (multi-modal)支持vllm推理
 """
 
 from typing import Any, Dict, List
 
+from transformers import AutoProcessor
 from vllm import LLM, SamplingParams
 from vllm.utils import cuda_device_count_stateless
 
-from eval_anything.utils.data_type import InferenceInput, InferenceOutput
-from eval_anything.utils.register import TemplateRegistry, MMDataManagerRegistry
 from eval_anything.models.base_model import BaseModel
-from transformers import AutoProcessor
+from eval_anything.utils.data_type import InferenceInput, InferenceOutput
+from eval_anything.utils.register import MMDataManagerRegistry, TemplateRegistry
+
 
 class vllmMM(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
@@ -32,8 +48,10 @@ class vllmMM(BaseModel):
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
         self.chat_template = self.model_cfgs.chat_template
-        self.template = TemplateRegistry.get_template(self.chat_template) if self.chat_template else None
-        
+        self.template = (
+            TemplateRegistry.get_template(self.chat_template) if self.chat_template else None
+        )
+
         self.task2details = {}
         self.detailed_filename = f'{self.model_id}_detailed'
         self.brief_filename = f'{self.model_id}_brief'
@@ -61,12 +79,13 @@ class vllmMM(BaseModel):
             tensor_parallel_size=self.llm_tensor_parallel_size,
             gpu_memory_utilization=self.llm_gpu_memory_utilization,
             # TODO: Add parameters for limit_mm_per_prompt
-            limit_mm_per_prompt={"image": 8, "audio": 8, "video": 8},
+            limit_mm_per_prompt={'image': 8, 'audio': 8, 'video': 8},
         )
         self.processor = AutoProcessor.from_pretrained(self.model_name_or_path)
 
-
-    def generation(self, inputs: Dict[str, List[InferenceInput]]) -> Dict[str, List[InferenceOutput]]:
+    def generation(
+        self, inputs: Dict[str, List[InferenceInput]]
+    ) -> Dict[str, List[InferenceOutput]]:
         """
         Generate outputs for a batch of inputs.
         """
@@ -77,32 +96,39 @@ class vllmMM(BaseModel):
         Internal method to handle generation logic using the model.
         Processes input list and returns inference outputs.
         """
-    
+
         vllm_inputs = []
         for input in input_list:
-            prompt = self.processor.apply_chat_template(input.conversation, add_generation_prompt=True)
+            prompt = self.processor.apply_chat_template(
+                input.conversation, add_generation_prompt=True
+            )
             mm_data_manager = MMDataManagerRegistry.get_mm_data_manager(input.metadata)
-            mm_data, mm_processor_kwargs = mm_data_manager.extract_from_conversation(input.conversation)
+            mm_data, mm_processor_kwargs = mm_data_manager.extract_from_conversation(
+                input.conversation
+            )
             vllm_inputs.append(
                 {
-                    "prompt": prompt,
-                    "multi_modal_data": {f"{input.metadata}": mm_data},
-                    "mm_processor_kwargs": mm_processor_kwargs,
+                    'prompt': prompt,
+                    'multi_modal_data': {f'{input.metadata}': mm_data},
+                    'mm_processor_kwargs': mm_processor_kwargs,
                 }
             )
-            
-        outputs = self.model.generate(
-            prompts=vllm_inputs, sampling_params=self.samplingparams
-        )
-      
+
+        outputs = self.model.generate(prompts=vllm_inputs, sampling_params=self.samplingparams)
+
         inference_outputs = [
-            InferenceOutput.from_vllm_output(task=input.task, ref_answer=input.ref_answer, uuid=input.uuid, vllm_output=output, store_raw=True)
+            InferenceOutput.from_vllm_output(
+                task=input.task,
+                ref_answer=input.ref_answer,
+                uuid=input.uuid,
+                vllm_output=output,
+                store_raw=True,
+            )
             for input, output in zip(input_list, outputs)
         ]
 
-
         return inference_outputs
-    
+
     # TODO
     def shutdown_model(self):
-        pass    
+        pass
