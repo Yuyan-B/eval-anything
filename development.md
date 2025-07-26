@@ -70,6 +70,18 @@
   bash scripts/run.sh
   ```
 
+## Running On Huawei Ascend NPU
+You can build on Huawei Ascend NPU by simply:
+ ```bash
+  pip install -e .[ascend]
+  ```
+The current test environment for Ascend is:
+
+* Python 3.10.6
+* CANN 8.0.rc3
+* Architecture: aarch64
+* Hardware: 8x Ascend-SNT9B ARM (192 cores, 1536GB memory)
+
 ## Running VLA Benchmarks
 
 1. Configuring `objaverse`

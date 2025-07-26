@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+import torch
 
 
 # ===== 拒绝回答的关键词列表 =====
@@ -208,7 +209,16 @@ def download_malicious_instruct_models(
         print('2. 确认Google Drive链接可访问')
         print('3. 手动下载文件并解压到指定目录')
         return False
-
+device = None
+if hasattr(torch, 'npu') and torch.npu.is_available():
+    device = 'npu'
+    num_gpus = None  # NPU 不使用 num_gpus 参数
+elif torch.cuda.is_available():
+    device = 'cuda'
+    num_gpus = 1
+else:
+    device = 'cpu'
+    num_gpus = None
 
 def init_evaluator(
     evaluator_path='eval-anything-local/models/MaliciousInstruct/evaluator',
@@ -224,7 +234,7 @@ def init_evaluator(
         'text-classification',
         model=scorer_model,
         tokenizer=tokenizer,
-        device='cuda',  # 使用GPU加速
+        device= device,  
         truncation=True,
         max_length=512,
     )
@@ -232,7 +242,7 @@ def init_evaluator(
         'text-classification',
         model=evaluator_model,
         tokenizer=tokenizer,
-        device='cuda',
+        device= device,
         truncation=True,
         max_length=512,
     )

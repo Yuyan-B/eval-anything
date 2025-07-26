@@ -19,20 +19,33 @@
 
 import os
 from typing import Any, Dict, List
-
 from transformers import AutoTokenizer
 from vllm import LLM, SamplingParams
 from vllm.utils import cuda_device_count_stateless
-
+from utils.device_utils import get_current_device,get_device_count,set_device,torch_set_device
 from eval_anything.models.base_model import BaseModel
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.register import TemplateRegistry
-
+from transformers.utils import (
+    is_torch_cuda_available,
+    is_torch_mps_available,
+    is_torch_npu_available,
+    is_torch_xpu_available,
+)
 
 class vllmLM(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
         self.model_cfgs = model_cfgs
         self.infer_cfgs = infer_cfgs
+        visible_devices = ','.join(str(i) for i in self.infer_cfgs.gpu_ids)
+        if is_torch_npu_available():
+            self.device = 'npu'
+            os.environ['ASCEND_RT_VISIBLE_DEVICES'] = visible_devices
+        elif is_torch_cuda_available():
+            self.device = 'cuda'
+            os.environ['CUDA_VISIBLE_DEVICES'] = visible_devices
+        
+
         self.sp_n = self.infer_cfgs.num_output
         self.sp_top_k = self.infer_cfgs.top_k
         self.sp_top_p = self.infer_cfgs.top_p
@@ -44,7 +57,7 @@ class vllmLM(BaseModel):
         self.llm_trust_remote_code = self.infer_cfgs.trust_remote_code
         self.llm_gpu_memory_utilization = self.infer_cfgs.gpu_utilization
         tensor_ps = self.infer_cfgs.num_gpu
-        self.llm_tensor_parallel_size = tensor_ps if tensor_ps else cuda_device_count_stateless()
+        self.llm_tensor_parallel_size = tensor_ps
 
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
@@ -56,8 +69,6 @@ class vllmLM(BaseModel):
         self.task2details = {}
         self.detailed_filename = f'{self.model_id}_detailed'
         self.brief_filename = f'{self.model_id}_brief'
-        visible_devices = ','.join(str(i) for i in self.infer_cfgs.gpu_ids)
-        os.environ['CUDA_VISIBLE_DEVICES'] = visible_devices
         self.init_model()
 
     def init_model(self) -> None:
@@ -68,19 +79,30 @@ class vllmLM(BaseModel):
             temperature=self.sp_temperature,
             max_tokens=self.sp_max_tokens,
             prompt_logprobs=self.sp_prompt_logprobs,
-            logprobs=self.sp_logprobs,
+            logprobs=self.sp_logprobs
         )
 
-        self.model = LLM(
-            model=self.model_name_or_path,
-            tokenizer=self.model_name_or_path,
-            trust_remote_code=self.llm_trust_remote_code,
-            tensor_parallel_size=self.llm_tensor_parallel_size,
-            gpu_memory_utilization=self.llm_gpu_memory_utilization,
-            distributed_executor_backend='ray',
-        )
+        if self.device == 'npu':
+            self.model = LLM(
+                model=self.model_name_or_path,
+                tokenizer=self.model_name_or_path,
+                trust_remote_code=self.llm_trust_remote_code,
+                tensor_parallel_size=self.llm_tensor_parallel_size,
+                gpu_memory_utilization=self.llm_gpu_memory_utilization,
+                dtype="bfloat16",  # 使用fp16以节省显存
+                device="npu",  # 华为Ascend NPU
+                enforce_eager=True,  # 强制使用eager模式，对NPU更友好
+            )
+        elif self.device == 'cuda':
+            self.model = LLM(
+                model=self.model_name_or_path,
+                tokenizer=self.model_name_or_path,
+                trust_remote_code=self.llm_trust_remote_code,
+                tensor_parallel_size=self.llm_tensor_parallel_size,
+                gpu_memory_utilization=self.llm_gpu_memory_utilization,
+            )
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name_or_path, trust_remote_code=self.llm_trust_remote_code)
         if self.tokenizer.pad_token is None:
             if hasattr(self.tokenizer, 'add_special_tokens'):
                 self.tokenizer.add_special_tokens({'pad_token': self.tokenizer.eos_token})
@@ -117,6 +139,7 @@ class vllmLM(BaseModel):
             tokenize=False,
             return_tensors='pt',
         )
+
 
         outputs = self.model.generate(prompts=prompts, sampling_params=self.samplingparams)
         inference_outputs = [

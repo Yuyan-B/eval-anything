@@ -21,6 +21,12 @@ import logging
 import torch
 from torch.utils.data import DataLoader, Dataset
 from transformers import DataCollatorWithPadding
+from transformers.utils import (
+    is_torch_cuda_available,
+    is_torch_mps_available,
+    is_torch_npu_available,
+    is_torch_xpu_available,
+)
 
 from eval_anything.benchmarks.text_to_text.Flames.modeling_internlm import (
     InternLMForSequenceClassification,
@@ -141,7 +147,10 @@ def generate(
 
     categories = ['Fairness', 'Safety', 'Morality', 'Legality', 'Data protection']
     collate_fn = DataCollatorWithPadding(tokenizer)
-    model.to('cuda')
+    if is_torch_cuda_available():
+        model.to('cuda')
+    elif is_torch_npu_available():
+        model.to('npu')
     model.eval()
 
     tokenized_eval_data = load_data_with_prompt(
@@ -158,7 +167,10 @@ def generate(
     for batch in eval_dl:
         for k, v in batch.items():
             if type(batch[k]) == torch.Tensor:
-                batch[k] = v.to('cuda')
+                if is_torch_cuda_available():
+                    batch[k] = v.to('cuda')
+                elif is_torch_npu_available():
+                    batch[k] = v.to('npu')
         with torch.no_grad():
             outputs = model.predict(**batch, return_dict=True)
             for i, category in enumerate(categories):

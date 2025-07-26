@@ -18,7 +18,7 @@
 """
 
 from typing import Any, Dict, List
-
+import os 
 from transformers import AutoProcessor
 from vllm import LLM, SamplingParams
 from vllm.utils import cuda_device_count_stateless
@@ -26,12 +26,25 @@ from vllm.utils import cuda_device_count_stateless
 from eval_anything.models.base_model import BaseModel
 from eval_anything.utils.data_type import InferenceInput, InferenceOutput
 from eval_anything.utils.register import MMDataManagerRegistry, TemplateRegistry
-
+from transformers.utils import (
+    is_torch_cuda_available,
+    is_torch_mps_available,
+    is_torch_npu_available,
+    is_torch_xpu_available,
+)
 
 class vllmMM(BaseModel):
     def __init__(self, model_cfgs: Dict[str, Any], infer_cfgs, **kwargs):
         self.model_cfgs = model_cfgs
         self.infer_cfgs = infer_cfgs
+        visible_devices = ','.join(str(i) for i in self.infer_cfgs.gpu_ids)
+        if is_torch_npu_available():
+            self.device = 'npu'
+            os.environ['ASCEND_RT_VISIBLE_DEVICES'] = visible_devices
+        elif is_torch_cuda_available():
+            self.device = 'cuda'
+            os.environ['CUDA_VISIBLE_DEVICES'] = visible_devices
+
         self.sp_n = self.infer_cfgs.num_output
         self.sp_top_k = self.infer_cfgs.top_k
         self.sp_top_p = self.infer_cfgs.top_p
@@ -43,7 +56,7 @@ class vllmMM(BaseModel):
         self.llm_trust_remote_code = self.infer_cfgs.trust_remote_code
         self.llm_gpu_memory_utilization = self.infer_cfgs.gpu_utilization
         tensor_ps = self.infer_cfgs.num_gpu
-        self.llm_tensor_parallel_size = tensor_ps if tensor_ps else cuda_device_count_stateless()
+        self.llm_tensor_parallel_size = tensor_ps
 
         self.model_id = self.model_cfgs.model_id
         self.model_name_or_path = self.model_cfgs.model_name_or_path
@@ -72,15 +85,27 @@ class vllmMM(BaseModel):
             logprobs=self.sp_logprobs,
         )
 
-        self.model = LLM(
-            model=self.model_name_or_path,
-            tokenizer=self.model_name_or_path,
-            trust_remote_code=self.llm_trust_remote_code,
-            tensor_parallel_size=self.llm_tensor_parallel_size,
-            gpu_memory_utilization=self.llm_gpu_memory_utilization,
-            # TODO: Add parameters for limit_mm_per_prompt
-            limit_mm_per_prompt={'image': 8, 'audio': 8, 'video': 8},
-        )
+        if self.device == 'npu':
+            self.model = LLM(
+                model=self.model_name_or_path,
+                tokenizer=self.model_name_or_path,
+                trust_remote_code=self.llm_trust_remote_code,
+                tensor_parallel_size=self.llm_tensor_parallel_size,
+                gpu_memory_utilization=self.llm_gpu_memory_utilization,
+                # TODO: Add parameters for limit_mm_per_prompt
+                limit_mm_per_prompt={'image': 8, 'audio': 8, 'video': 8},
+                dtype="bfloat16",  # 使用fp16以节省显存
+                device="npu",  # 华为Ascend NPU
+                enforce_eager=True,  # 强制使用eager模式，对NPU更友好
+            )
+        elif self.device == 'cuda':
+            self.model = LLM(
+                model=self.model_name_or_path,
+                tokenizer=self.model_name_or_path,
+                trust_remote_code=self.llm_trust_remote_code,
+                tensor_parallel_size=self.llm_tensor_parallel_size,
+                gpu_memory_utilization=self.llm_gpu_memory_utilization,
+            )
         self.processor = AutoProcessor.from_pretrained(self.model_name_or_path)
 
     def generation(

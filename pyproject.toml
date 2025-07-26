@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "eval-anything"
 description = "Eval Anything"
 readme = "README.md"
-requires-python = ">= 3.11"
+requires-python = ">= 3.10" 
 authors = [{ name = "PKU-Alignment Team" }]
 license = { text = "Apache License, Version 2.0" }
 keywords = [
@@ -28,7 +28,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "vllm >= 0.6.2",
     "torch >= 1.13",
     "frechet_audio_distance",
     "transformers",
@@ -200,4 +199,25 @@ vla = [
     "scikit-image",
     "torchmetrics",
     "gym"
+]
+ascend =  [
+    "torch==2.5.1",
+    "torchvision",       
+    "torchaudio",            
+    "torch-npu==2.5.1",      
+    "numpy==1.26.4",                
+    "deepspeed" ,   
+    "transformers >= 4.50.0",
+    "datasets",
+    "tokenizers >= 0.13.3",
+    "accelerate",
+    "wandb",
+    "tensorboard",
+    "tqdm",
+    "rich",
+    "diffusers",
+    "peft",
+    "gradio",
+    "librosa",
+    "soundfile",
 ]
